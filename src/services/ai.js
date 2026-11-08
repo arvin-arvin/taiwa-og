@@ -1,32 +1,4 @@
 /**
- * Call xKiro (Qwen) through our own server function
- */
-async function callXkiro(model, systemPrompt, messages) {
-  const formattedMessages = [
-    { role: "system", content: systemPrompt },
-    ...messages.map((m) => ({
-      role: m.sender === "user" ? "user" : "assistant",
-      content: m.text,
-    })),
-  ];
-
-  const res = await fetch("/api/xkiro", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: formattedMessages }),
-  });
-
-  const data = await res.json();
-  if (data.error) {
-    throw new Error(data.error.message || data.error || "xKiro API Error");
-  }
-
-  const rawText = data.choices[0].message.content;
-  const cleanJson = rawText.replace(/```json\n?|\n?```/g, "").trim();
-  return JSON.parse(cleanJson);
-}
-
-/**
  * Call Google Gemini through our own server function
  */
 async function callGemini(model, systemPrompt, messages) {
@@ -67,7 +39,7 @@ async function callGemini(model, systemPrompt, messages) {
  * Main AI dispatcher for chat replies
  */
 export async function generateRoleplayResponse({
-  selectedModel = "qwen/qwen3.5-flash:free",
+  selectedModel = "gemini-3.5-flash-lite",
   scenarioContext = "Japanese Restaurant / Cafe",
   messages,
   cards = [],
@@ -116,11 +88,7 @@ You MUST respond strictly in valid raw JSON without markdown formatting:
 `;
 
   try {
-    if (selectedModel.startsWith("qwen/")) {
-      return await callXkiro(selectedModel, systemPrompt, messages);
-    } else {
-      return await callGemini(selectedModel, systemPrompt, messages);
-    }
+    return await callGemini(selectedModel, systemPrompt, messages);
   } catch (err) {
     console.error(`AI Model Request Failed (${selectedModel}):`, err);
     return {
@@ -134,10 +102,10 @@ You MUST respond strictly in valid raw JSON without markdown formatting:
 }
 
 /**
- * Generates 3 candidate responses in Japanese based on active model (xKiro or Gemini)
+ * Generates 3 candidate responses in Japanese
  */
 export async function generateReplyHints({
-  selectedModel = "qwen/qwen3.5-flash:free",
+  selectedModel = "gemini-3.5-flash-lite",
   scenarioContext = "General Practice",
   messages = [],
   cards = [],
@@ -173,46 +141,26 @@ ${recentHistory}
 Generate 3 Japanese candidate reply options for the user. Return JSON array ONLY.`;
 
   try {
-        let rawText = '';
-
-    if (selectedModel.startsWith('qwen/')) {
-      const res = await fetch("/api/xkiro", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+    const res = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: selectedModel,
+        payload: {
+          contents: [
+            { role: "user", parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] },
           ],
-        }),
-      });
-
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || data.error || "xKiro API Error");
-      rawText = data.choices?.[0]?.message?.content || '';
-    } else {
-      const res = await fetch("/api/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: selectedModel,
-          payload: {
-            contents: [
-              { role: "user", parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] },
-            ],
-            generationConfig: {
-              responseMimeType: "application/json",
-              temperature: 0.7,
-            },
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7,
           },
-        }),
-      });
+        },
+      }),
+    });
 
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || data.error || "Gemini API Error");
-      rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || data.error || "Gemini API Error");
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     const cleanJson = rawText.replace(/```json\n?|\n?```/g, '').trim();
     const hints = JSON.parse(cleanJson);

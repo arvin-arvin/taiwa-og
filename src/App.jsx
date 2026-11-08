@@ -74,7 +74,7 @@ export default function App() {
   const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
   const [showSettings, setShowSettings] = useState(false);
   const [usedCardIds, setUsedCardIds] = useState(() => new Set());
-  const [selectedModel, setSelectedModel] = useState('qwen/qwen3.5-flash:free');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash-lite');
   const currentT = translations[lang] || translations.en;
   // Scenario Management State
   const [scenarios, setScenarios] = useState([]);
@@ -403,13 +403,9 @@ useEffect(() => {
       onChange={(e) => setSelectedModel(e.target.value)}
       className="select-input"
     >
-      <optgroup label="xKiro (Qwen API)">
-        <option value="qwen/qwen3.5-flash:free">Qwen 3.5 Flash</option>
-      </optgroup>
-      <optgroup label="Google Gemini API">
-        <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <optgroup label="Google Gemini API">
+        <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
+        <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
       </optgroup>
     </select>
   </div>
