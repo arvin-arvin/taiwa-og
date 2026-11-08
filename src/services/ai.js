@@ -1,12 +1,7 @@
 /**
- * Call xKiro OpenAI-compatible API
+ * Call xKiro (Qwen) through our own server function
  */
 async function callXkiro(model, systemPrompt, messages) {
-  const apiKey = import.meta.env.VITE_XKIRO_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing VITE_XKIRO_API_KEY in .env file.");
-  }
-
   const formattedMessages = [
     { role: "system", content: systemPrompt },
     ...messages.map((m) => ({
@@ -15,22 +10,15 @@ async function callXkiro(model, systemPrompt, messages) {
     })),
   ];
 
-  const res = await fetch("https://api.xkiro.com/v1/chat/completions", {
+  const res = await fetch("/api/xkiro", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: formattedMessages,
-      temperature: 0.7,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages: formattedMessages }),
   });
 
   const data = await res.json();
   if (data.error) {
-    throw new Error(data.error.message || "xKiro API Error");
+    throw new Error(data.error.message || data.error || "xKiro API Error");
   }
 
   const rawText = data.choices[0].message.content;
@@ -39,14 +27,9 @@ async function callXkiro(model, systemPrompt, messages) {
 }
 
 /**
- * Call Google Gemini API
+ * Call Google Gemini through our own server function
  */
 async function callGemini(model, systemPrompt, messages) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing VITE_GEMINI_API_KEY in .env file.");
-  }
-
   const contents = [
     { role: "user", parts: [{ text: systemPrompt }] },
     ...messages.map((m) => ({
@@ -55,23 +38,24 @@ async function callGemini(model, systemPrompt, messages) {
     })),
   ];
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const res = await fetch(url, {
+  const res = await fetch("/api/gemini", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents,
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.7,
+      model,
+      payload: {
+        contents,
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        },
       },
     }),
   });
 
   const data = await res.json();
   if (data.error) {
-    throw new Error(data.error.message || "Gemini API Error");
+    throw new Error(data.error.message || data.error || "Gemini API Error");
   }
 
   const rawText = data.candidates[0].content.parts[0].text;
@@ -189,54 +173,44 @@ ${recentHistory}
 Generate 3 Japanese candidate reply options for the user. Return JSON array ONLY.`;
 
   try {
-    let rawText = '';
+        let rawText = '';
 
     if (selectedModel.startsWith('qwen/')) {
-      const apiKey = import.meta.env.VITE_XKIRO_API_KEY;
-      if (!apiKey) throw new Error("Missing VITE_XKIRO_API_KEY in .env file.");
-
-      const res = await fetch("https://api.xkiro.com/v1/chat/completions", {
+      const res = await fetch("/api/xkiro", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: selectedModel,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          temperature: 0.7,
         }),
       });
 
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message || "xKiro API Error");
+      if (data.error) throw new Error(data.error.message || data.error || "xKiro API Error");
       rawText = data.choices?.[0]?.message?.content || '';
     } else {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error("Missing VITE_GEMINI_API_KEY in .env file.");
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: selectedModel,
+          payload: {
             contents: [
-              { role: 'user', parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }
+              { role: "user", parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] },
             ],
             generationConfig: {
               responseMimeType: "application/json",
               temperature: 0.7,
             },
-          }),
-        }
-      );
+          },
+        }),
+      });
 
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message || "Gemini API Error");
+      if (data.error) throw new Error(data.error.message || data.error || "Gemini API Error");
       rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
 

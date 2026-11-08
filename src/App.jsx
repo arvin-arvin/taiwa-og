@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { invokeAnki, sanitizeCard } from './services/anki';
 import { generateRoleplayResponse, generateReplyHints } from './services/ai'; // <--- Import generateReplyHints
-import { speakJapanese } from './utils/speech';
+import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
 import { DEFAULT_SCENARIOS, getCustomScenarios, saveCustomScenario } from './constants/scenarios';
 import { 
