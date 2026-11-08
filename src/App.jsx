@@ -1,0 +1,981 @@
+import React, { useState, useEffect } from 'react';
+import { invokeAnki, sanitizeCard } from './services/anki';
+import { generateRoleplayResponse, generateReplyHints } from './services/ai'; // <--- Import generateReplyHints
+import { speakJapanese } from './utils/speech';
+import { translations } from './constants/translations';
+import { DEFAULT_SCENARIOS, getCustomScenarios, saveCustomScenario } from './constants/scenarios';
+import { 
+  Layers, 
+  Send, 
+  CheckCircle2, 
+  XCircle, 
+  Sliders,
+  Volume2,
+  AlertCircle,
+  Cpu,
+  Settings,
+  X,
+  Globe,
+  MessageSquare,
+  Compass,
+  Search,
+  Plus,
+  ArrowRight,
+  Utensils,
+  Coffee,
+  ShoppingBag,
+  Store,
+  MessageCircle,
+  MapPin,
+  Hotel,
+  Train,
+  Plane,
+  Briefcase,
+  Heart,
+  Sparkles,
+  Building,
+  Lightbulb,
+  Sun,
+  Moon,
+  BookOpen,
+  Check,
+  RotateCcw,
+
+
+} from 'lucide-react';
+import './App.css';
+
+const SCENARIO_ICONS = {
+  Utensils,
+  Coffee,
+  ShoppingBag,
+  Store,
+  MessageCircle,
+  MapPin,
+  Hotel,
+  Train,
+  Plane,
+  Briefcase,
+  Heart,
+  Sparkles,
+  Building,
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('chat');
+  const [ankiStatus, setAnkiStatus] = useState('connecting');
+  const [decks, setDecks] = useState([]);
+  const [selectedDeck, setSelectedDeck] = useState('');
+  const [deckCards, setDeckCards] = useState([]);
+  const [usedWords, setUsedWords] = useState(new Set());
+  const [theme, setTheme] = useState(() => localStorage.getItem('appTheme') || 'dark');
+  // Settings & System State
+  const [lang, setLang] = useState('en');
+  const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
+  const [showSettings, setShowSettings] = useState(false);
+  const [usedCardIds, setUsedCardIds] = useState(() => new Set());
+  const [selectedModel, setSelectedModel] = useState('qwen/qwen3.5-flash:free');
+  const currentT = translations[lang] || translations.en;
+  // Scenario Management State
+  const [scenarios, setScenarios] = useState([]);
+  const [activeScenario, setActiveScenario] = useState(DEFAULT_SCENARIOS[0]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formalityFilter, setFormalityFilter] = useState('ALL');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // New Scenario Form State
+  const [newTitleEn, setNewTitleEn] = useState('');
+  const [newTitleJa, setNewTitleJa] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newGreeting, setNewGreeting] = useState('');
+  const [newTranslation, setNewTranslation] = useState('');
+  const [newFormalities, setNewFormalities] = useState(['Teineigo (丁寧語 - Polite)']);
+  const [newIcon, setNewIcon] = useState('Sparkles');
+
+  // Chat Config
+  const [jlptLevel, setJlptLevel] = useState('N4');
+  const [formality, setFormality] = useState('Teineigo (丁寧語 - Polite)');
+  const [loading, setLoading] = useState(false);
+  const [isHintGlowing, setIsHintGlowing] = useState(false);
+
+  // Hint Assistant State
+  const [hints, setHints] = useState([]);
+  const [loadingHints, setLoadingHints] = useState(false);
+  const [showHints, setShowHints] = useState(false);
+
+  const t = translations[systemLang];
+
+  useEffect(() => {
+    const custom = getCustomScenarios();
+    setScenarios([...DEFAULT_SCENARIOS, ...custom]);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('systemLang', systemLang);
+  }, [systemLang]);
+
+  useEffect(() => {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('appTheme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+
+  useEffect(() => {
+    async function initAnki() {
+      try {
+        const deckList = await invokeAnki('deckNames');
+        setDecks(deckList);
+        if (deckList.length > 0) setSelectedDeck(deckList[0]);
+        setAnkiStatus('ready');
+      } catch (err) {
+        setAnkiStatus('error');
+      }
+    }
+    initAnki();
+  }, []);
+
+  
+
+  useEffect(() => {
+    if (!selectedDeck || ankiStatus !== 'ready') return;
+    
+    async function loadCards() {
+      try {
+        const cardIds = await invokeAnki('findCards', { query: `deck:"${selectedDeck}"` });
+        if (cardIds.length > 0) {
+          const rawCards = await invokeAnki('cardsInfo', { cards: cardIds.slice(0, 10) });
+          setDeckCards(rawCards.map(sanitizeCard));
+        } else {
+          setDeckCards([]);
+        }
+      } catch (e) {
+        console.error("Card fetch failed", e);
+      }
+    }
+    loadCards();
+  }, [selectedDeck, ankiStatus]);
+
+  const [messages, setMessages] = useState([
+    {
+      sender: 'ai',
+      text: DEFAULT_SCENARIOS[0].initialMessage.text,
+      translation: DEFAULT_SCENARIOS[0].initialMessage.translation,
+      furiganaHtml: DEFAULT_SCENARIOS[0].initialMessage.furiganaHtml
+    }
+  ]);
+  const [input, setInput] = useState('');
+
+  const handleLaunchScenario = (scenario) => {
+    setActiveScenario(scenario);
+    setFormality(scenario.supportedFormalities[0]);
+    setMessages([
+      {
+        sender: 'ai',
+        text: scenario.initialMessage.text,
+        translation: scenario.initialMessage.translation,
+        furiganaHtml: scenario.initialMessage.furiganaHtml,
+      }
+    ]);
+    setShowHints(false);
+    setHints([]);
+    setActiveTab('chat');
+  };
+
+
+useEffect(() => {
+  setIsHintGlowing(false);
+
+  // Check if it's currently the user's turn to reply (last message from AI)
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage?.sender === 'ai') {
+    const timer = setTimeout(() => {
+      setIsHintGlowing(true);
+    }, 60000); // 60,000ms = 1 minute
+
+    return () => clearTimeout(timer);
+  }
+}, [messages, input]);
+
+  const handleCreateScenario = (e) => {
+    e.preventDefault();
+    if (!newTitleEn || !newGreeting) return;
+
+    const created = {
+      id: `custom-${Date.now()}`,
+      title: { en: newTitleEn, ja: newTitleJa || newTitleEn },
+      description: { en: newDesc, ja: newDesc },
+      supportedFormalities: newFormalities,
+      initialMessage: {
+        text: newGreeting,
+        translation: newTranslation || newGreeting,
+        furiganaHtml: newGreeting,
+      },
+      icon: newIcon,
+    };
+
+    const updated = saveCustomScenario(created);
+    setScenarios([...DEFAULT_SCENARIOS, ...updated]);
+    setShowCreateModal(false);
+    
+    setNewTitleEn('');
+    setNewTitleJa('');
+    setNewDesc('');
+    setNewGreeting('');
+    setNewTranslation('');
+    setNewIcon('Sparkles');
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const userMessage = { sender: 'user', text: input };
+    const updatedMessages = [...messages, userMessage];
+
+    setMessages(updatedMessages);
+    setInput('');
+    setShowHints(false);
+    setLoading(true);
+
+    try {
+      const aiReply = await generateRoleplayResponse({
+        selectedModel,
+        scenarioContext: activeScenario.title.en,
+        messages: updatedMessages,
+        cards: deckCards,
+        jlptLevel,
+        formality,
+        systemLang,
+      });
+
+      setUsedWords((prev) => {
+        const newSet = new Set(prev);
+        if (aiReply.usedWords) aiReply.usedWords.forEach((word) => newSet.add(word));
+        deckCards.forEach((c) => {
+          if (aiReply.text.includes(c.expression)) newSet.add(c.expression);
+        });
+        return newSet;
+      });
+
+      setMessages((prev) => {
+        const msgs = [...prev];
+        const lastUserIndex = msgs.length - 1;
+
+        if (aiReply.userFeedback?.hasIssues && msgs[lastUserIndex]?.sender === 'user') {
+          msgs[lastUserIndex] = { ...msgs[lastUserIndex], feedback: aiReply.userFeedback };
+        }
+
+        return [
+          ...msgs,
+          {
+            sender: 'ai',
+            text: aiReply.text,
+            translation: aiReply.translation,
+            furiganaHtml: aiReply.furiganaHtml,
+          },
+        ];
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Trigger Hint Generation
+  const handleGetHints = async () => {
+    if (loadingHints) return;
+    setLoadingHints(true);
+    setShowHints(true);
+
+    try {
+      const generated = await generateReplyHints({
+        selectedModel,
+        scenarioContext: activeScenario.title.en,
+        messages,
+        cards: deckCards,
+        jlptLevel,
+        formality,
+        systemLang,
+      });
+
+      setHints(generated);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingHints(false);
+    }
+  };
+
+  // Click a hint to autofill text input
+  const handleSelectHint = (text) => {
+    setInput(text);
+    setShowHints(false);
+  };
+
+  const filteredScenarios = scenarios.filter((s) => {
+    const titleMatch = s.title.en.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       s.title.ja.includes(searchQuery);
+    const formalityMatch = formalityFilter === 'ALL' || s.supportedFormalities.includes(formalityFilter);
+    return titleMatch && formalityMatch;
+  });
+
+  return (
+    <div className="app-container">
+      {/* 1. Header fixed at the very top */}
+      <header className="top-header">
+        <div className="brand">
+          <div className="brand-icon">話</div>
+          <div className="brand-title">
+            Taiwa
+          </div>
+        </div>
+
+        <nav className="nav-tabs">
+          <button
+            type="button"
+            className={`nav-btn ${activeTab === 'chat' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            Chat Practice
+          </button>
+          <button
+            type="button"
+            className={`nav-btn ${activeTab === 'scenarios' ? 'active' : ''}`}
+            onClick={() => setActiveTab('scenarios')}
+          >
+            Scenarios
+          </button>
+        </nav>
+
+        <div className="header-actions">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="icon-btn"
+            title={currentT.settings || 'Settings'}
+            type="button"
+          >
+            <Settings style={{ width: 18, height: 18 }} />
+          </button>
+        </div>
+      </header>
+
+      {/* 2. Main Dashboard Layout Body */}
+      <div className="dashboard-grid">
+        {/* Side Panel on Far Left */}
+        <aside className="side-panel">
+  {/* 1. Anki Deck Selection */}
+  <div className="panel-box">
+    <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <Layers style={{ width: 16, height: 16, color: 'var(--aizome-800)' }} />
+      {t?.deckSelection || 'Anki Deck'}
+    </h2>
+    <select
+      value={selectedDeck}
+      onChange={(e) => setSelectedDeck(e.target.value)}
+      disabled={ankiStatus !== 'ready'}
+      className="select-input"
+    >
+      {decks && decks.length > 0 ? (
+        decks.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))
+      ) : (
+        <option>{t?.noDecks || 'No Decks Available'}</option>
+      )}
+    </select>
+  </div>
+
+  {/* 2. AI Model Selection */}
+  <div className="panel-box">
+    <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <Cpu style={{ width: 16, height: 16, color: 'var(--aizome-800)' }} />
+      {t?.aiEngine || 'AI Model'}
+    </h2>
+    <select 
+      value={selectedModel}
+      onChange={(e) => setSelectedModel(e.target.value)}
+      className="select-input"
+    >
+      <optgroup label="xKiro (Qwen API)">
+        <option value="qwen/qwen3.5-flash:free">Qwen 3.5 Flash</option>
+      </optgroup>
+      <optgroup label="Google Gemini API">
+        <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+      </optgroup>
+    </select>
+  </div>
+
+  {/* 3. Scenario Controls (JLPT & Formality Level) */}
+  <div className="panel-box">
+    <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <Sliders style={{ width: 16, height: 16, color: 'var(--shu-500)' }} />
+      {t?.scenarioControls || 'Scenario Controls'}
+    </h2>
+
+    {/* JLPT Level Picker */}
+    <div style={{ marginBottom: '0.75rem' }}>
+      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
+        {t?.jlptLevel || 'JLPT Level'}
+      </label>
+      <div className="jlpt-grid">
+        {['N5', 'N4', 'N3', 'N2', 'N1'].map((lvl) => (
+          <button
+            key={lvl}
+            type="button"
+            onClick={() => setJlptLevel(lvl)}
+            className={`jlpt-btn ${jlptLevel === lvl ? 'active' : ''}`}
+          >
+            {lvl}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* Formality Level Picker */}
+    <div>
+      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
+        {t?.formalityLevel || 'Formality Level'}
+      </label>
+      <select 
+        value={formality}
+        onChange={(e) => setFormality(e.target.value)}
+        className="select-input"
+      >
+        {(activeScenario?.supportedFormalities || [
+          'Casual (タメ口)',
+          'Teineigo (丁寧語 - Polite)',
+          'Keigo (敬語 - Honorific/Humble)'
+        ]).map((f) => (
+          <option key={f} value={f}>
+            {f.includes('Casual') 
+              ? (t?.casual || 'Casual (タメ口)') 
+              : f.includes('Teineigo') 
+              ? (t?.polite || 'Polite (丁寧語)') 
+              : (t?.keigo || 'Keigo (敬語)')}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  {/* 4. Target Vocabulary & Deck Tracker */}
+  <div className="panel-box">
+    <div className="card-tracker-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <h2 className="panel-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <BookOpen style={{ width: 16, height: 16, color: 'var(--matcha-500)' }} />
+        {t?.targetVocab || 'Deck Vocabulary'}
+      </h2>
+      <span className="vocab-progress-badge">
+        {(usedWords?.size || 0)} / {(deckCards?.length || 0)} {t?.practiced || 'Practiced'}
+      </span>
+    </div>
+
+    <div className="card-list">
+      {deckCards && deckCards.length > 0 ? (
+        deckCards.map((card, idx) => {
+          const isUsed = usedWords && typeof usedWords.has === 'function' ? usedWords.has(card.expression) : false;
+          return (
+            <div key={card.id || idx} className={`card-item ${isUsed ? 'used' : ''}`}>
+              <div>
+                <div className="card-expression">{card.expression}</div>
+                <div className="card-reading">{card.reading}</div>
+                {isUsed && (
+                  <div className="card-status-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem' }}>
+                    <Check style={{ width: 10, height: 10 }} /> {t?.usedInChat || 'Used'}
+                  </div>
+                )}
+              </div>
+              <div className="card-english">{card.english || card.meaning}</div>
+            </div>
+          );
+        })
+      ) : (
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          {t?.noDecks || 'No deck cards loaded.'}
+        </p>
+      )}
+    </div>
+  </div>
+</aside>
+
+        {/* 3. Main Centered Chat Container Area */}
+        <main className="main-chat-area">
+          {activeTab === 'chat' ? (
+            <div className="chat-container">
+            <div className="chat-header">
+              <div>
+                <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>
+                  {activeScenario.title[systemLang] || activeScenario.title.en}
+                </h2>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {t.role}: {t.customer} | Level: {jlptLevel} | Formality: {formality}
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('scenarios')} 
+                className="icon-btn" 
+                title="Switch Scenario"
+                type="button"
+              >
+                <Compass style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+
+            <div className="chat-messages">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`message-row ${msg.sender}`}>
+                  <div className={`chat-bubble ${msg.sender}`}>
+                    <div className="chat-bubble-header">
+                      {msg.furiganaHtml ? (
+                        <div dangerouslySetInnerHTML={{ __html: msg.furiganaHtml }} />
+                      ) : (
+                        <div>{msg.text}</div>
+                      )}
+
+                      <button
+                        onClick={() => speakJapanese(msg.text)}
+                        className="speech-btn"
+                        title="Listen"
+                        type="button"
+                      >
+                        <Volume2 style={{ width: 16, height: 16 }} />
+                      </button>
+                    </div>
+
+                    {msg.translation && (
+                      <div className="translation-text">{msg.translation}</div>
+                    )}
+                  </div>
+
+                  {msg.sender === 'user' && msg.feedback && (
+                    <div className="user-feedback-box">
+                      <div className="feedback-header">
+                        <AlertCircle style={{ width: 14, height: 14 }} /> {t.grammarHint}
+                      </div>
+                      <div className="corrected-text">
+                        {t.better}: 「{msg.feedback.correctedText}」
+                      </div>
+                      <div className="feedback-explanation">
+                        {msg.feedback.explanation}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {loading && (
+                <div className="message-row ai">
+                  <div className="chat-bubble ai" style={{ opacity: 0.6 }}>
+                    {t.thinking}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* HINTS OVERLAY PANEL */}
+            {showHints && (
+              <div className="hints-overlay-panel">
+                <div className="hints-panel-header">
+                  <div className="hints-title">
+                    <Lightbulb style={{ width: 16, height: 16, color: 'var(--shu-500)' }} />
+                    {t.hintTitle}
+                  </div>
+                  <button onClick={() => setShowHints(false)} className="icon-btn" type="button">
+                    <X style={{ width: 14, height: 14 }} />
+                  </button>
+                </div>
+
+                {loadingHints ? (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
+                    {t.generatingHints}
+                  </div>
+                ) : hints.length > 0 ? (
+                  <div className="hints-grid">
+                    {hints.map((hint, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSelectHint(hint.japanese)}
+                        className="hint-card"
+                      >
+                        <div className="hint-japanese">{hint.japanese}</div>
+                        <div className="hint-reading">{hint.reading}</div>
+                        <div className="hint-english">{hint.english}</div>
+                        {hint.explanation && (
+                          <div className="hint-explanation">{hint.explanation}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    {t.noHintsFound}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CHAT INPUT FORM WITH HINT BUTTON */}
+            <form onSubmit={handleSend} className="chat-input-area">
+              <button
+  type="button"
+  onClick={() => {
+    setIsHintGlowing(false);
+    handleGetHints();
+  }}
+  disabled={loadingHints || loading}
+  className={`hint-toggle-btn ${isHintGlowing ? 'glowing' : ''}`}
+  title={t?.getHint || 'Get Hint'}
+>
+  <Lightbulb style={{ width: 16, height: 16, color: 'var(--shu-500)', flexShrink: 0 }} />
+  <span className="hint-btn-text">{t?.getHint || 'Help Reply'}</span>
+</button>
+
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={t.inputPlaceholder}
+                className="text-input"
+                disabled={loading}
+              />
+              <button type="submit" className="send-btn" disabled={loading}>
+                <Send style={{ width: 18, height: 18 }} />
+              </button>
+            </form>
+          </div>
+          ) : (
+        <div className="scenarios-container">
+          <div className="scenarios-header">
+            <div>
+              <h1 className="scenarios-title">{t.scenariosTitle}</h1>
+              <p className="scenarios-sub">{t.scenariosSubtitle}</p>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="primary-btn"
+              type="button"
+            >
+              <Plus style={{ width: 18, height: 18 }} />
+              {t.createScenarioBtn}
+            </button>
+          </div>
+
+          <div className="scenarios-filter-bar">
+            <div className="search-wrapper">
+              <Search style={{ width: 16, height: 16 }} />
+              <input
+                type="text"
+                placeholder={t.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+
+            <select
+              value={formalityFilter}
+              onChange={(e) => setFormalityFilter(e.target.value)}
+              className="select-input"
+              style={{ width: 'auto', minWidth: '200px' }}
+            >
+              <option value="ALL">{t.allFormalities}</option>
+              <option value="Casual (タメ口)">{t.casual}</option>
+              <option value="Teineigo (丁寧語 - Polite)">{t.polite}</option>
+              <option value="Keigo (敬語 - Honorific/Humble)">{t.keigo}</option>
+            </select>
+          </div>
+
+          {/* Scenario Cards Grid */}
+          <div className="scenarios-grid">
+            {filteredScenarios.map((scen) => {
+              const cleanIconKey = (scen.icon || '').trim();
+              const IconComponent = SCENARIO_ICONS[cleanIconKey] || Sparkles;
+
+              return (
+                <div key={scen.id} className="scenario-card">
+                  <div>
+                    <div className="scenario-card-header">
+                      <div className="scenario-icon-box">
+                        <IconComponent style={{ width: 20, height: 20 }} />
+                      </div>
+                      <div className="scenario-card-title">
+                        {scen.title[systemLang] || scen.title.en}
+                      </div>
+                    </div>
+                    <p className="scenario-card-desc" style={{ marginTop: '0.75rem' }}>
+                      {scen.description[systemLang] || scen.description.en}
+                    </p>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                      {t.supportedFormalities}
+                    </div>
+                    <div className="formality-tags-group">
+                      {scen.supportedFormalities.map((f) => (
+                        <span key={f} className="formality-chip">
+                          {f.includes('Casual') ? 'タメ口' : f.includes('Teineigo') ? '丁寧語' : '敬語'}
+                        </span>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => handleLaunchScenario(scen)}
+                      className="primary-btn"
+                      style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }}
+                      type="button"
+                    >
+                      {t.startPractice} <ArrowRight style={{ width: 16, height: 16 }} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* CREATE SCENARIO MODAL */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Plus style={{ width: 18, height: 18, color: 'var(--shu-500)' }} />
+                {t.createTitle}
+              </h2>
+              <button onClick={() => setShowCreateModal(false)} className="icon-btn" type="button">
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateScenario} className="modal-body">
+              <div className="form-group">
+                <label className="form-label">{t.selectIcon || "Choose Scenario Icon"}</label>
+                <div className="icon-picker-grid">
+                  {Object.keys(SCENARIO_ICONS).map((iconKey) => {
+                    const BtnIcon = SCENARIO_ICONS[iconKey];
+                    return (
+                      <button
+                        key={iconKey}
+                        type="button"
+                        onClick={() => setNewIcon(iconKey)}
+                        className={`icon-choice-btn ${newIcon === iconKey ? 'selected' : ''}`}
+                        title={iconKey}
+                      >
+                        <BtnIcon style={{ width: 18, height: 18 }} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t.scenarioNameEn}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Asking for a refund at a clothing store"
+                  value={newTitleEn}
+                  onChange={(e) => setNewTitleEn(e.target.value)}
+                  className="text-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t.scenarioNameJa}</label>
+                <input
+                  type="text"
+                  placeholder="例：服屋での返品依頼"
+                  value={newTitleJa}
+                  onChange={(e) => setNewTitleJa(e.target.value)}
+                  className="text-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t.descriptionEn}</label>
+                <input
+                  type="text"
+                  placeholder="Short description of the scenario"
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  className="text-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t.initialGreetingText}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="例：いらっしゃいませ。どのようなご用件でしょうか？"
+                  value={newGreeting}
+                  onChange={(e) => setNewGreeting(e.target.value)}
+                  className="text-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t.initialGreetingTranslation}</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Welcome. How can I help you today?"
+                  value={newTranslation}
+                  onChange={(e) => setNewTranslation(e.target.value)}
+                  className="text-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t.selectFormalities}</label>
+                <div className="checkbox-group">
+                  {[
+                    'Casual (タメ口)',
+                    'Teineigo (丁寧語 - Polite)',
+                    'Keigo (敬語 - Honorific/Humble)',
+                  ].map((f) => (
+                    <label key={f} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={newFormalities.includes(f)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewFormalities([...newFormalities, f]);
+                          } else if (newFormalities.length > 1) {
+                            setNewFormalities(newFormalities.filter((item) => item !== f));
+                          }
+                        }}
+                      />
+                      {f}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button type="submit" className="primary-btn" style={{ justifyContent: 'center', marginTop: '0.5rem' }}>
+                {t.saveScenario}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+        </main>
+      </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+  <div 
+    className="modal-overlay" 
+    onClick={() => setShowSettings(false)}
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999
+    }}
+  >
+    <div 
+      className="modal-content" 
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        backgroundColor: 'var(--bg-surface)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '1.25rem',
+        width: '90%',
+        maxWidth: '420px',
+        padding: '1.5rem',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+      }}
+    >
+      {/* Modal Header */}
+      <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          {currentT.settings || 'Settings'}
+        </h3>
+        <button 
+          className="icon-btn" 
+          onClick={() => setShowSettings(false)} 
+          type="button"
+          aria-label="Close settings"
+        >
+          <X style={{ width: 18, height: 18 }} />
+        </button>
+      </div>
+
+      {/* Settings Options */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Appearance / Theme */}
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+            Appearance / テーマ
+          </label>
+          <div className="lang-toggle-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className={`lang-btn ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => setTheme('dark')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              <Moon style={{ width: 15, height: 15 }} />
+              Dark
+            </button>
+            <button
+              type="button"
+              className={`lang-btn ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => setTheme('light')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              <Sun style={{ width: 15, height: 15 }} />
+              Light
+            </button>
+          </div>
+        </div>
+
+        {/* Interface Language */}
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+            Interface Language / 言語
+          </label>
+          <div className="lang-toggle-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
+              onClick={() => setLang('en')}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              className={`lang-btn ${lang === 'ja' ? 'active' : ''}`}
+              onClick={() => setLang('ja')}
+            >
+              日本語
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
+    </div>
+  );
+}
