@@ -440,7 +440,7 @@ useEffect(() => {
   {/* 1. Anki Deck Selection */}
   <div className="panel-box">
     <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-      <Layers style={{ width: 16, height: 16, color: 'var(--aizome-800)' }} />
+      <Layers style={{ width: 16, height: 16, color: 'var(--shu-500)' }} />
       {t?.deckSelection || 'Anki Deck'}
     </h2>
     <select

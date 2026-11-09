@@ -10,21 +10,21 @@
   --bg-surface-active: #333538;
   --bg-input: #1e1f20;
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(138, 180, 248, 0.25);
+  --border-glow: rgba(255, 138, 101, 0.25);
   
   --text-primary: #e3e2e6;
   --text-secondary: #c4c7c5;
   --text-muted: #8e918f;
 
   /* Accent Color Palette (Japanese Traditional + Gemini Vibrancy) */
-  --aizom-800: #8ab4f8;  /* Indigo / Gemini Soft Blue */
-  --aizom-glow: rgba(138, 180, 248, 0.15);
+  --aizome-800: #8ab4f8;  /* Indigo / Gemini Soft Blue */
+  --aizome-glow: rgba(138, 180, 248, 0.15);
   
   --matcha-500: #81c995;  /* Tea Green / Soft Mint */
   --matcha-glow: rgba(129, 201, 149, 0.15);
   
-  --shu-500: #f0724c;     /* Vermilion Red / Coral Spark */
-  --shu-600: #e95e34;
+  --shu-500: #ea6a43;     /* Vermilion Red / Coral Spark */
+  --shu-600: #f1673e;
   --shu-glow: rgba(255, 138, 101, 0.18);
   
   --washi-100: #2b2c2f;   /* Dark Washi Texture surface */
@@ -39,14 +39,14 @@
   --bg-surface-active: #e8eaed;
   --bg-input: #ffffff;
   --border-subtle: #e0e0e0;
-  --border-glow: rgba(26, 115, 232, 0.2);
+  --border-glow: rgba(224, 86, 36, 0.25);
 
   --text-primary: #1f1f1f;
   --text-secondary: #444746;
   --text-muted: #747775;
 
-  --shu-800: #1a73e8;
-  --shu-glow: rgba(26, 115, 232, 0.08);
+  --aizome-800: #1a73e8;
+  --aizome-glow: rgba(26, 115, 232, 0.08);
 
   --matcha-500: #1e8e3e;
   --matcha-glow: rgba(30, 142, 62, 0.08);
@@ -124,7 +124,7 @@ body {
 .brand-icon {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, var(--shu-800), var(--shu-500));
+  background: linear-gradient(135deg, var(--shu-500), var(--shu-500));
   color: #131314;
   font-weight: 800;
   font-size: 1.1rem;
@@ -174,7 +174,7 @@ body {
 
 .nav-btn.active {
   background-color: var(--bg-surface);
-  color: var(--shu-800);
+  color: var(--shu-500);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -277,7 +277,7 @@ body {
 
 .sidebar-nav-btn.active {
   background-color: var(--bg-app);
-  color: var(--shu-800);
+  color: var(--shu-500);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -376,8 +376,8 @@ body {
 
 .jlpt-btn.active {
   background-color: var(--shu-glow);
-  color: var(--shu-800);
-  border-color: var(--shu-800);
+  color: var(--shu-500);
+  border-color: var(--shu-500);
 }
 
 .card-tracker-header {
@@ -522,7 +522,7 @@ body {
   padding: 0.2rem;
 }
 
-.speech-btn:hover { color: var(--shu-800); }
+.speech-btn:hover { color: var(--shu-500); }
 
 .translation-text {
   margin-top: 0.5rem;
@@ -659,7 +659,7 @@ body {
 
 .hint-card:hover {
   background-color: var(--bg-surface-hover);
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
 }
 
 .hint-japanese { font-weight: 700; color: var(--text-primary); font-size: 0.9rem; }
@@ -681,7 +681,7 @@ body {
 }
 
 .chat-input-area:focus-within {
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
   box-shadow: 0 0 0 2px var(--shu-glow);
 }
 
@@ -762,8 +762,8 @@ body {
 
 .lang-btn.active {
   background-color: var(--shu-glow);
-  color: var(--shu-800);
-  border-color: var(--shu-800);
+  color: var(--shu-500);
+  border-color: var(--shu-500);
 }
 
 /* ==========================================================================
@@ -823,15 +823,15 @@ body {
 
 .scenario-card:hover {
   background-color: var(--bg-surface-hover);
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .scenario-card.active {
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
   background-color: var(--shu-glow);
-  box-shadow: 0 0 0 1px var(--shu-800);
+  box-shadow: 0 0 0 1px var(--shu-500);
 }
 
 .scenario-card-top {
@@ -873,8 +873,8 @@ body {
 .scenario-level-badge.n3,
 .scenario-level-badge.intermediate {
   background-color: var(--shu-glow);
-  color: var(--shu-800);
-  border-color: var(--shu-800);
+  color: var(--shu-500);
+  border-color: var(--shu-500);
 }
 
 .scenario-level-badge.n1,
@@ -920,7 +920,7 @@ body {
   padding: 0.6rem;
   border-radius: 0.75rem;
   border: none;
-  background-color: var(--shu-800);
+  background-color: var(--shu-500);
   color: #131314;
   font-size: 0.85rem;
   font-weight: 700;
@@ -1006,7 +1006,7 @@ body {
   padding: 0.65rem 1.15rem;
   border: none;
   border-radius: 0.75rem;
-  background-color: var(--shu-800);
+  background-color: var(--shu-500);
   color: #131314;
   font-size: 0.85rem;
   font-weight: 700;
@@ -1042,7 +1042,7 @@ body {
 }
 
 .search-wrapper:focus-within {
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
   box-shadow: 0 0 0 2px var(--shu-glow);
 }
 
@@ -1077,7 +1077,7 @@ body {
   border-radius: 0.85rem;
   background-color: var(--bg-app);
   border: 1px solid var(--border-subtle);
-  color: var(--shu-800);
+  color: var(--shu-500);
 }
 
 .scenario-card-title {
@@ -1106,7 +1106,7 @@ body {
   font-size: 0.75rem;
   font-weight: 600;
   background-color: var(--shu-glow);
-  color: var(--shu-800);
+  color: var(--shu-500);
   border: 1px solid var(--border-glow);
 }
 
@@ -1148,7 +1148,7 @@ body {
 }
 
 .modal-body .text-input:focus {
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
   box-shadow: 0 0 0 2px var(--shu-glow);
 }
 
@@ -1177,9 +1177,9 @@ body {
 }
 
 .icon-choice-btn.selected {
-  border-color: var(--shu-800);
+  border-color: var(--shu-500);
   background-color: var(--shu-glow);
-  color: var(--shu-800);
+  color: var(--shu-500);
 }
 
 .checkbox-group {
@@ -1204,5 +1204,5 @@ body {
 .checkbox-label input {
   width: 16px;
   height: 16px;
-  accent-color: var(--shu-800);
+  accent-color: var(--shu-500);
 }
