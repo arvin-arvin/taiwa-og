@@ -67,6 +67,9 @@ export default function App() {
   const [decks, setDecks] = useState([]);
   const [selectedDeck, setSelectedDeck] = useState('');
   const [deckCards, setDeckCards] = useState([]);
+  const [cardCount, setCardCount] = useState(10);
+  const [cardMode, setCardMode] = useState('random'); // 'random' | 'top'
+  const [shuffleKey, setShuffleKey] = useState(0);
   const [usedWords, setUsedWords] = useState(new Set());
   const [theme, setTheme] = useState(() => localStorage.getItem('appTheme') || 'dark');
   // Settings & System State
@@ -140,14 +143,19 @@ export default function App() {
 
   
 
-  useEffect(() => {
+    useEffect(() => {
     if (!selectedDeck || ankiStatus !== 'ready') return;
-    
+
     async function loadCards() {
       try {
         const cardIds = await invokeAnki('findCards', { query: `deck:"${selectedDeck}"` });
+        setUsedWords(new Set());
         if (cardIds.length > 0) {
-          const rawCards = await invokeAnki('cardsInfo', { cards: cardIds.slice(0, 10) });
+          const picked =
+            cardMode === 'random'
+              ? [...cardIds].sort(() => Math.random() - 0.5).slice(0, cardCount)
+              : cardIds.slice(0, cardCount);
+          const rawCards = await invokeAnki('cardsInfo', { cards: picked });
           setDeckCards(rawCards.map(sanitizeCard));
         } else {
           setDeckCards([]);
@@ -157,7 +165,7 @@ export default function App() {
       }
     }
     loadCards();
-  }, [selectedDeck, ankiStatus]);
+  }, [selectedDeck, ankiStatus, cardCount, cardMode, shuffleKey]);
 
   const [messages, setMessages] = useState([
     {
@@ -393,22 +401,39 @@ useEffect(() => {
   </div>
 
   {/* 2. AI Model Selection */}
-  <div className="panel-box">
-    <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-      <Cpu style={{ width: 16, height: 16, color: 'var(--aizome-800)' }} />
-      {t?.aiEngine || 'AI Model'}
-    </h2>
-    <select 
-      value={selectedModel}
-      onChange={(e) => setSelectedModel(e.target.value)}
-      className="select-input"
-    >
-        <optgroup label="Google Gemini API">
-        <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
-        <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
-      </optgroup>
-    </select>
-  </div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+      <select
+        value={cardMode}
+        onChange={(e) => setCardMode(e.target.value)}
+        disabled={ankiStatus !== 'ready'}
+        className="select-input"
+        aria-label={t?.cardMode || 'Card selection'}
+      >
+        <option value="random">{t?.modeRandom || 'Random'}</option>
+        <option value="top">{t?.modeTop || 'Top of deck'}</option>
+      </select>
+      <select
+        value={cardCount}
+        onChange={(e) => setCardCount(Number(e.target.value))}
+        disabled={ankiStatus !== 'ready'}
+        className="select-input"
+        aria-label={t?.cardCount || 'Cards to practise'}
+      >
+        {[5, 10, 15, 20, 30].map((n) => (
+          <option key={n} value={n}>{n}</option>
+        ))}
+      </select>
+    </div>
+    {cardMode === 'random' && (
+      <button
+        type="button"
+        onClick={() => setShuffleKey((k) => k + 1)}
+        disabled={ankiStatus !== 'ready'}
+        style={{ marginTop: '0.5rem' }}
+      >
+        {t?.reshuffle || 'Reshuffle'}
+      </button>
+    )}
 
   {/* 3. Scenario Controls (JLPT & Formality Level) */}
   <div className="panel-box">
