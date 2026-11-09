@@ -40,6 +40,8 @@ import {
   BookOpen,
   Check,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
 
 
 } from 'lucide-react';
@@ -79,6 +81,21 @@ export default function App() {
   // Settings & System State
   const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
   const [showSettings, setShowSettings] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebarCollapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
+    } catch {
+      // storage unavailable, ignore
+    }
+  }, [sidebarCollapsed]);
   const [usedCardIds, setUsedCardIds] = useState(() => new Set());
   const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash-lite');
  
@@ -376,47 +393,50 @@ useEffect(() => {
   return (
     <div className="app-container">
       {/* 1. Header fixed at the very top */}
-      <header className="top-header">
-        <div className="brand">
-          <div className="brand-icon">話</div>
-          <div className="brand-title">
-            Taiwa
-          </div>
-        </div>
-
-        <nav className="nav-tabs">
-          <button
-            type="button"
-            className={`nav-btn ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => setActiveTab('chat')}
-          >
-            Chat Practice
-          </button>
-          <button
-            type="button"
-            className={`nav-btn ${activeTab === 'scenarios' ? 'active' : ''}`}
-            onClick={() => setActiveTab('scenarios')}
-          >
-            Scenarios
-          </button>
-        </nav>
-
-        <div className="header-actions">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="icon-btn"
-            title={t?.settings || 'Settings'}
-            type="button"
-          >
-            <Settings style={{ width: 18, height: 18 }} />
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Main Dashboard Layout Body */}
+            {/* Sidebar + main area */}
       <div className="dashboard-grid">
-        {/* Side Panel on Far Left */}
-        <aside className="side-panel">
+        <aside className={`side-panel ${sidebarCollapsed ? 'collapsed' : ''}`}>
+          <div className="sidebar-top">
+            <div className="brand">
+              <div className="brand-icon">話</div>
+              <div className="brand-title sidebar-label">Taiwa</div>
+            </div>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setSidebarCollapsed((c) => !c)}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight style={{ width: 18, height: 18 }} />
+              ) : (
+                <ChevronLeft style={{ width: 18, height: 18 }} />
+              )}
+            </button>
+          </div>
+
+          <nav className="sidebar-nav">
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${activeTab === 'chat' ? 'active' : ''}`}
+              onClick={() => setActiveTab('chat')}
+              title={t?.navChat || 'Chat Practice'}
+            >
+              <MessageSquare style={{ width: 18, height: 18, flexShrink: 0 }} />
+              <span className="sidebar-label">{t?.navChat || 'Chat Practice'}</span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${activeTab === 'scenarios' ? 'active' : ''}`}
+              onClick={() => setActiveTab('scenarios')}
+              title={t?.navScenarios || 'Scenarios'}
+            >
+              <Compass style={{ width: 18, height: 18, flexShrink: 0 }} />
+              <span className="sidebar-label">{t?.navScenarios || 'Scenarios'}</span>
+            </button>
+          </nav>
+
+          <div className="sidebar-scroll">
   {/* 1. Anki Deck Selection */}
   <div className="panel-box">
     <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -603,7 +623,20 @@ useEffect(() => {
       )}
     </div>
   </div>
-</aside>
+          </div>
+
+          <div className="sidebar-bottom">
+            <button
+              type="button"
+              className="sidebar-nav-btn"
+              onClick={() => setShowSettings(true)}
+              title={t?.settings || 'Settings'}
+            >
+              <Settings style={{ width: 18, height: 18, flexShrink: 0 }} />
+              <span className="sidebar-label">{t?.settings || 'Settings'}</span>
+            </button>
+          </div>
+        </aside>
 
         {/* 3. Main Centered Chat Container Area */}
         <main className="main-chat-area">

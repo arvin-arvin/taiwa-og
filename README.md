@@ -1,17 +1,55 @@
-# React + Vite
+# Taiwa (対話)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web app for practising Japanese conversation with an AI roleplay partner. It pulls vocabulary from your own Anki decks, so you practise the words you are already learning.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Roleplay scenarios (cafe, convenience store, hotel, directions, chatting with a friend), plus custom scenarios
+- JLPT level (N5–N1) and formality (casual, teineigo, keigo) controls
+- Target vocabulary from Anki through AnkiConnect: random, top of deck, or hand-picked cards, with furigana
+- Grammar and formality feedback on your replies, and reply hints
+- Furigana and English translation on AI messages, with text-to-speech
+- English and Japanese interface, dark and light themes
 
-## React Compiler
+## Tech stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + Vite
+- Vercel serverless function (`api/gemini.js`) that keeps the Gemini API key on the server
+- Google Gemini models (3.5 Flash-Lite, 3.6 Flash)
+- AnkiConnect (Anki add-on), called from the browser
+- Settings and custom scenarios are stored in the browser (`localStorage`)
 
-## Expanding the ESLint configuration
+## Running it
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-"# taiwa-og" 
+```bash
+npm install
+npm run dev
+```
+
+`npm run dev` serves the interface only. The AI calls go through `/api/gemini`, which is a Vercel function, so to chat locally run the project with the Vercel CLI (`vercel dev`) and set `GEMINI_API_KEY` in a local `.env` file.
+
+## Environment variables
+
+| Name | Where | Purpose |
+|---|---|---|
+| `GEMINI_API_KEY` | Vercel project settings (server only) | Gemini API key |
+
+Never put API keys in variables that start with `VITE_`, because Vite copies those into the code sent to every visitor.
+
+## Anki setup
+
+1. Install the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on and keep Anki open while using Taiwa.
+2. In Anki, go to Tools → Add-ons → AnkiConnect → Config and add your site's address to `webCorsOriginList`, for example:
+
+```json
+"webCorsOriginList": [
+    "http://localhost",
+    "https://your-site.vercel.app"
+]
+```
+
+3. Restart Anki. Your browser may ask permission to connect to apps on your device. Allow it.
+
+## Deployment
+
+The app is deployed on Vercel from the `main` branch. Every push to `main` redeploys it. Add `GEMINI_API_KEY` under Settings → Environment Variables before deploying.
