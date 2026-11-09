@@ -77,12 +77,11 @@ export default function App() {
   const [usedWords, setUsedWords] = useState(new Set());
   const [theme, setTheme] = useState(() => localStorage.getItem('appTheme') || 'dark');
   // Settings & System State
-  const [lang, setLang] = useState('en');
   const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
   const [showSettings, setShowSettings] = useState(false);
   const [usedCardIds, setUsedCardIds] = useState(() => new Set());
   const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash-lite');
-  const currentT = translations[lang] || translations.en;
+ 
   // Scenario Management State
   const [scenarios, setScenarios] = useState([]);
   const [activeScenario, setActiveScenario] = useState(DEFAULT_SCENARIOS[0]);
@@ -406,7 +405,7 @@ useEffect(() => {
           <button
             onClick={() => setShowSettings(true)}
             className="icon-btn"
-            title={currentT.settings || 'Settings'}
+            title={t?.settings || 'Settings'}
             type="button"
           >
             <Settings style={{ width: 18, height: 18 }} />
@@ -1004,7 +1003,7 @@ useEffect(() => {
       {/* Modal Header */}
       <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-          {currentT.settings || 'Settings'}
+          {t?.settings || 'Settings'}
         </h3>
         <button 
           className="icon-btn" 
@@ -1051,17 +1050,17 @@ useEffect(() => {
             Interface Language / 言語
           </label>
           <div className="lang-toggle-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            <button
+                        <button
               type="button"
-              className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
-              onClick={() => setLang('en')}
+              className={`lang-btn ${systemLang === 'en' ? 'active' : ''}`}
+              onClick={() => setSystemLang('en')}
             >
               English
             </button>
             <button
               type="button"
-              className={`lang-btn ${lang === 'ja' ? 'active' : ''}`}
-              onClick={() => setLang('ja')}
+              className={`lang-btn ${systemLang === 'ja' ? 'active' : ''}`}
+              onClick={() => setSystemLang('ja')}
             >
               日本語
             </button>
