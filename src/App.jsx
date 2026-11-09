@@ -582,8 +582,10 @@ useEffect(() => {
           return (
             <div key={card.id || idx} className={`card-item ${isUsed ? 'used' : ''}`}>
               <div>
-                <div className="card-expression">{card.expression}</div>
-                <div className="card-reading">{card.reading}</div>
+                  <div
+                  className="card-expression"
+                  dangerouslySetInnerHTML={{ __html: card.displayHtml }}
+                />
                 {isUsed && (
                   <div className="card-status-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem' }}>
                     <Check style={{ width: 10, height: 10 }} /> {t?.usedInChat || 'Used'}

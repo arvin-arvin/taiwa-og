@@ -27,6 +27,21 @@ function htmlToPlain(html) {
   return doc.body.textContent.trim();
 }
 
+/** Short English meaning: the first few glosses of a Yomitan entry */
+function extractMeaning(html) {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  const glosses = [];
+  doc.querySelectorAll('[data-sc-content="glossary"] > li').forEach((li) => {
+    const text = li.textContent.trim();
+    if (text && !glosses.includes(text)) glosses.push(text);
+  });
+  if (glosses.length > 0) return glosses.slice(0, 4).join('; ');
+
+  // Not a Yomitan entry: use the plain text, shortened
+  const fallback = doc.body.textContent.trim().split('\n')[0];
+  return fallback.length > 80 ? `${fallback.slice(0, 80)}…` : fallback;
+}
+
 /** Collects every <ruby> base/reading pair found in some HTML */
 function collectRubies(html) {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
@@ -70,10 +85,7 @@ function buildFurigana(expression, plainReading, otherHtml) {
 export function sanitizeCard(card) {
   const f = card.fields;
   const rawMeaning = f.Meaning?.value || f.Back?.value || '';
-
-  // Extract clean text from HTML
-  const doc = new DOMParser().parseFromString(rawMeaning, 'text/html');
-  const cleanEnglish = doc.body.textContent.trim().split('\n')[0];
+  const cleanEnglish = extractMeaning(rawMeaning);
 
   const expression = htmlToPlain(f.Expression?.value || f.Front?.value || '');
 
