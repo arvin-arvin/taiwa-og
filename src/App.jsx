@@ -44,6 +44,7 @@ import {
 
 } from 'lucide-react';
 import './App.css';
+const MAX_PICKED = 30;
 
 const SCENARIO_ICONS = {
   Utensils,
@@ -70,6 +71,9 @@ export default function App() {
   const [cardCount, setCardCount] = useState(10);
   const [cardMode, setCardMode] = useState('random'); // 'random' | 'top'
   const [shuffleKey, setShuffleKey] = useState(0);
+  const [pickedCards, setPickedCards] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [usedWords, setUsedWords] = useState(new Set());
   const [theme, setTheme] = useState(() => localStorage.getItem('appTheme') || 'dark');
   // Settings & System State
@@ -143,8 +147,8 @@ export default function App() {
 
   
 
-    useEffect(() => {
-    if (!selectedDeck || ankiStatus !== 'ready') return;
+      useEffect(() => {
+    if (!selectedDeck || ankiStatus !== 'ready' || cardMode === 'select') return;
 
     async function loadCards() {
       try {
@@ -167,6 +171,17 @@ export default function App() {
     loadCards();
   }, [selectedDeck, ankiStatus, cardCount, cardMode, shuffleKey]);
 
+  // In "select" mode the practice words are the cards you ticked
+  useEffect(() => {
+    if (cardMode === 'select') setDeckCards(pickedCards);
+  }, [cardMode, pickedCards]);
+
+  // A different deck means old picks and search results no longer apply
+  useEffect(() => {
+    setPickedCards([]);
+    setSearchResults([]);
+  }, [selectedDeck]);
+
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
@@ -176,6 +191,33 @@ export default function App() {
     }
   ]);
   const [input, setInput] = useState('');
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    const q = searchText.trim().replace(/"/g, '');
+    const query = q
+      ? `deck:"${selectedDeck}" "${q}"`
+      : `deck:"${selectedDeck}"`;
+    try {
+      const ids = await invokeAnki('findCards', { query });
+      const raw = ids.length > 0
+        ? await invokeAnki('cardsInfo', { cards: ids.slice(0, 20) })
+        : [];
+      setSearchResults(raw.map(sanitizeCard));
+    } catch (err) {
+      console.error('Card search failed', err);
+    }
+  };
+
+  const togglePick = (card) => {
+    setPickedCards((prev) =>
+      prev.some((c) => c.id === card.id)
+        ? prev.filter((c) => c.id !== card.id)
+        : prev.length >= MAX_PICKED
+          ? prev
+          : [...prev, card]
+    );
+  };
 
   const handleLaunchScenario = (scenario) => {
     setActiveScenario(scenario);
@@ -411,11 +453,12 @@ useEffect(() => {
       >
         <option value="random">{t?.modeRandom || 'Random'}</option>
         <option value="top">{t?.modeTop || 'Top of deck'}</option>
+        <option value="select">{t?.modeSelect || 'Select cards'}</option>
       </select>
       <select
         value={cardCount}
         onChange={(e) => setCardCount(Number(e.target.value))}
-        disabled={ankiStatus !== 'ready'}
+                disabled={ankiStatus !== 'ready' || cardMode === 'select'}
         className="select-input"
         aria-label={t?.cardCount || 'Cards to practise'}
       >
@@ -433,6 +476,39 @@ useEffect(() => {
       >
         {t?.reshuffle || 'Reshuffle'}
       </button>
+    )}
+        {cardMode === 'select' && (
+      <div style={{ marginTop: '0.75rem' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem' }}>
+          <input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder={t?.searchCards || 'Search cards (blank = browse)'}
+            className="select-input"
+          />
+<button type="submit">{t?.search || 'Search'}</button>
+        </form>
+        <div style={{ marginTop: '0.5rem', maxHeight: '12rem', overflowY: 'auto' }}>
+          {searchResults.map((card) => (
+            <label
+              key={card.id}
+              style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.25rem 0' }}
+            >
+              <input
+                type="checkbox"
+                checked={pickedCards.some((c) => c.id === card.id)}
+                onChange={() => togglePick(card)}
+              />
+                            <ruby>
+                              <span dangerouslySetInnerHTML={{ __html: card.displayHtml }} />
+              </ruby>
+            </label>
+          ))}
+        </div>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+          {pickedCards.length} / {MAX_PICKED} {t?.selectedCards || 'selected'}
+        </p>
+      </div>
     )}
 
   {/* 3. Scenario Controls (JLPT & Formality Level) */}
