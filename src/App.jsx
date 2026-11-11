@@ -7,6 +7,8 @@ import {
   DEFAULT_SCENARIOS,
   getCustomScenarios,
   saveCustomScenario,
+  updateCustomScenario,
+  deleteCustomScenario,
   exportCustomScenarios,
   importCustomScenarios,
 } from './constants/scenarios';
@@ -52,6 +54,7 @@ import {
   ChevronRight,
   Download,
   Upload,
+  Pencil
 
 } from 'lucide-react';
 import './App.css';
@@ -161,7 +164,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [formalityFilter, setFormalityFilter] = useState('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
-
+  const [editingId, setEditingId] = useState(null);
   // New Scenario Form State
   const [newTitleEn, setNewTitleEn] = useState('');
   const [newTitleJa, setNewTitleJa] = useState('');
@@ -383,35 +386,91 @@ useEffect(() => {
     }
   };
 
+  const resetScenarioForm = () => {
+    setEditingId(null);
+    setNewTitleEn('');
+    setNewTitleJa('');
+    setNewDesc('');
+    setNewGreeting('');
+    setNewTranslation('');
+    setNewFormalities(['Teineigo (丁寧語 - Polite)']);
+    setNewIcon('Sparkles');
+  };
+
+  const openCreateModal = () => {
+    resetScenarioForm();
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (scen) => {
+    setEditingId(scen.id);
+    setNewTitleEn(scen.title.en);
+    setNewTitleJa(scen.title.ja === scen.title.en ? '' : scen.title.ja);
+    setNewDesc(scen.description?.en || '');
+    setNewGreeting(scen.initialMessage.text);
+    setNewTranslation(
+      scen.initialMessage.translation === scen.initialMessage.text
+        ? ''
+        : scen.initialMessage.translation
+    );
+    setNewFormalities(scen.supportedFormalities);
+    setNewIcon(scen.icon || 'Sparkles');
+    setShowCreateModal(true);
+  };
+
   const handleCreateScenario = (e) => {
     e.preventDefault();
     if (!newTitleEn || !newGreeting) return;
 
-    const created = {
-      id: `custom-${Date.now()}`,
+    const original = editingId ? scenarios.find((s) => s.id === editingId) : null;
+    const built = {
+      id: editingId || `custom-${Date.now()}`,
       title: { en: newTitleEn, ja: newTitleJa || newTitleEn },
       description: { en: newDesc, ja: newDesc },
       supportedFormalities: newFormalities,
       initialMessage: {
         text: newGreeting,
         translation: newTranslation || newGreeting,
-        furiganaHtml: newGreeting,
+        furiganaHtml:
+          original && original.initialMessage.text === newGreeting
+            ? original.initialMessage.furiganaHtml
+            : newGreeting,
       },
       icon: newIcon,
     };
 
-    const updated = saveCustomScenario(created);
+    const updated = editingId ? updateCustomScenario(built) : saveCustomScenario(built);
     setScenarios([...DEFAULT_SCENARIOS, ...updated]);
+    if (editingId && activeScenario.id === editingId) setActiveScenario(built);
     setShowCreateModal(false);
-    
-    setNewTitleEn('');
-    setNewTitleJa('');
-    setNewDesc('');
-    setNewGreeting('');
-    setNewTranslation('');
-    setNewIcon('Sparkles');
+    resetScenarioForm();
   };
 
+  const handleDeleteScenario = () => {
+    if (!editingId) return;
+    if (!window.confirm('Delete this scenario? This cannot be undone.')) return;
+
+    const updated = deleteCustomScenario(editingId);
+    setScenarios([...DEFAULT_SCENARIOS, ...updated]);
+
+    // If the open chat uses this scenario, fall back to the first built-in one
+    if (activeScenario.id === editingId) {
+      const fallback = DEFAULT_SCENARIOS[0];
+      setActiveScenario(fallback);
+      setFormality(fallback.supportedFormalities[0]);
+      setMessages([
+        {
+          sender: 'ai',
+          text: fallback.initialMessage.text,
+          translation: fallback.initialMessage.translation,
+          furiganaHtml: fallback.initialMessage.furiganaHtml,
+        },
+      ]);
+    }
+
+    setShowCreateModal(false);
+    resetScenarioForm();
+  };
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
@@ -980,7 +1039,7 @@ useEffect(() => {
                 />
               </label>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={openCreateModal}
                 className="primary-btn"
                 type="button"
               >
@@ -1031,6 +1090,17 @@ useEffect(() => {
                       <div className="scenario-card-title">
                         {scen.title[systemLang] || scen.title.en}
                       </div>
+                      {String(scen.id).startsWith('custom-') && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          style={{ marginLeft: 'auto' }}
+                          onClick={() => openEditModal(scen)}
+                          title="Edit scenario"
+                        >
+                          <Pencil style={{ width: 14, height: 14 }} />
+                        </button>
+                      )}
                     </div>
                     <p className="scenario-card-desc" style={{ marginTop: '0.75rem' }}>
                       {scen.description[systemLang] || scen.description.en}
@@ -1072,7 +1142,7 @@ useEffect(() => {
             <div className="modal-header">
               <h2 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Plus style={{ width: 18, height: 18, color: 'var(--shu-500)' }} />
-                {t.createTitle}
+                {editingId ? 'Edit scenario' : t.createTitle}
               </h2>
               <button onClick={() => setShowCreateModal(false)} className="icon-btn" type="button">
                 <X style={{ width: 18, height: 18 }} />
@@ -1184,8 +1254,19 @@ useEffect(() => {
               </div>
 
               <button type="submit" className="primary-btn" style={{ justifyContent: 'center', marginTop: '0.5rem' }}>
-                {t.saveScenario}
+                {editingId ? 'Save changes' : t.saveScenario}
               </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleDeleteScenario}
+                  style={{ justifyContent: 'center', color: '#e5484d', borderColor: '#e5484d' }}
+                >
+                  Delete scenario
+                </button>
+              )}
             </form>
           </div>
         </div>

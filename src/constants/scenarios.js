@@ -146,3 +146,15 @@ export function importCustomScenarios(jsonText) {
   localStorage.setItem('custom_scenarios', JSON.stringify([...clean, ...getCustomScenarios()]));
   return { added: clean.length, skipped: Math.min(list.length, MAX_IMPORT) - clean.length };
 }
+
+export function updateCustomScenario(scenario) {
+  const updated = getCustomScenarios().map((s) => (s.id === scenario.id ? scenario : s));
+  localStorage.setItem('custom_scenarios', JSON.stringify(updated));
+  return updated;
+}
+
+export function deleteCustomScenario(id) {
+  const updated = getCustomScenarios().filter((s) => s.id !== id);
+  localStorage.setItem('custom_scenarios', JSON.stringify(updated));
+  return updated;
+}
