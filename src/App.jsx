@@ -82,12 +82,14 @@ export default function App() {
   // Settings & System State
   const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
   const [showSettings, setShowSettings] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
-      return localStorage.getItem('sidebarCollapsed') === 'true';
+      const saved = localStorage.getItem('sidebarCollapsed');
+      if (saved !== null) return saved === 'true';
     } catch {
-      return false;
+      // storage unavailable, fall through
     }
+    return window.innerWidth < 720;
   });
 
   useEffect(() => {
@@ -98,8 +100,6 @@ export default function App() {
     }
   }, [sidebarCollapsed]);
   const [usedCardIds, setUsedCardIds] = useState(() => new Set());
-  const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash-lite');
- 
     const [aiSettings, setAiSettings] = useState(loadSettings);
 
   useEffect(() => {
@@ -316,7 +316,6 @@ useEffect(() => {
 
     try {
       const aiReply = await generateRoleplayResponse({
-        selectedModel,
         scenarioContext: activeScenario.title.en,
         messages: updatedMessages,
         cards: deckCards,
@@ -367,7 +366,6 @@ useEffect(() => {
 
     try {
       const generated = await generateReplyHints({
-        selectedModel,
         scenarioContext: activeScenario.title.en,
         messages,
         cards: deckCards,
@@ -468,7 +466,7 @@ useEffect(() => {
     </select>
   </div>
 
-  {/* 2. AI Model Selection */}
+  {/* 2 card selection mode and count */}
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
       <select
         value={cardMode}
@@ -658,14 +656,6 @@ useEffect(() => {
                   {t.role}: {t.customer} | Level: {jlptLevel} | Formality: {formality}
                 </p>
               </div>
-              <button 
-                onClick={() => setActiveTab('scenarios')} 
-                className="icon-btn" 
-                title="Switch Scenario"
-                type="button"
-              >
-                <Compass style={{ width: 16, height: 16 }} />
-              </button>
             </div>
 
             <div className="chat-messages">

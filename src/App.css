@@ -938,23 +938,12 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .dashboard-grid {
-    flex-direction: column;
-  }
-
-  .side-panel {
-    width: 100%;
-    max-height: 220px;
-    border-right: none;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
   .main-chat-area {
     padding: 0.5rem;
   }
 
   .chat-container {
-    max-width: 100%; /* Full-screen width on small/medium devices */
+    max-width: 100%;
     border-radius: 0.75rem;
   }
 }
@@ -1241,4 +1230,20 @@ body {
 
 .settings-hint a {
   color: var(--shu-500);
+}
+/* Furigana */
+ruby {
+  ruby-align: center;
+}
+
+rt {
+  font-size: 0.45em;
+  line-height: 1;
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.chat-bubble-header > div:first-child {
+  text-align: left;
+  line-height: 1.9;
 }
