@@ -50,6 +50,18 @@ import {
 import './App.css';
 const MAX_PICKED = 30;
 
+const CHAT_KEY = 'taiwa.chat.v1';
+
+function loadChat() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHAT_KEY));
+    if (!saved || !Array.isArray(saved.messages) || saved.messages.length === 0) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
 const SCENARIO_ICONS = {
   Utensils,
   Coffee,
@@ -133,7 +145,11 @@ export default function App() {
 
   // Scenario Management State
   const [scenarios, setScenarios] = useState([]);
-  const [activeScenario, setActiveScenario] = useState(DEFAULT_SCENARIOS[0]);
+    const [activeScenario, setActiveScenario] = useState(() => {
+    const saved = loadChat();
+    const all = [...DEFAULT_SCENARIOS, ...getCustomScenarios()];
+    return all.find((s) => s.id === saved?.scenarioId) || DEFAULT_SCENARIOS[0];
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [formalityFilter, setFormalityFilter] = useState('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -148,8 +164,10 @@ export default function App() {
   const [newIcon, setNewIcon] = useState('Sparkles');
 
   // Chat Config
-  const [jlptLevel, setJlptLevel] = useState('N4');
-  const [formality, setFormality] = useState('Teineigo (丁寧語 - Polite)');
+  const [jlptLevel, setJlptLevel] = useState(() => loadChat()?.jlptLevel || 'N4');
+  const [formality, setFormality] = useState(
+    () => loadChat()?.formality || 'Teineigo (丁寧語 - Polite)'
+  );
   const [loading, setLoading] = useState(false);
   const [isHintGlowing, setIsHintGlowing] = useState(false);
 
@@ -230,14 +248,28 @@ export default function App() {
     setSearchResults([]);
   }, [selectedDeck]);
 
-  const [messages, setMessages] = useState([
-    {
-      sender: 'ai',
-      text: DEFAULT_SCENARIOS[0].initialMessage.text,
-      translation: DEFAULT_SCENARIOS[0].initialMessage.translation,
-      furiganaHtml: DEFAULT_SCENARIOS[0].initialMessage.furiganaHtml
+  const [messages, setMessages] = useState(
+    () =>
+      loadChat()?.messages || [
+        {
+          sender: 'ai',
+          text: activeScenario.initialMessage.text,
+          translation: activeScenario.initialMessage.translation,
+          furiganaHtml: activeScenario.initialMessage.furiganaHtml,
+        },
+      ]
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CHAT_KEY,
+        JSON.stringify({ scenarioId: activeScenario.id, messages, jlptLevel, formality })
+      );
+    } catch {
+      // storage unavailable, ignore
     }
-  ]);
+  }, [messages, activeScenario, jlptLevel, formality]);
   const [input, setInput] = useState('');
 
   const handleSearch = async (e) => {
@@ -265,6 +297,23 @@ export default function App() {
           ? prev
           : [...prev, card]
     );
+  };
+
+  const handleNewChat = () => {
+    if (messages.length > 1 && !window.confirm('Start a new chat? The current conversation will be cleared.')) {
+      return;
+    }
+    setMessages([
+      {
+        sender: 'ai',
+        text: activeScenario.initialMessage.text,
+        translation: activeScenario.initialMessage.translation,
+        furiganaHtml: activeScenario.initialMessage.furiganaHtml,
+      },
+    ]);
+    setUsedWords(new Set());
+    setShowHints(false);
+    setHints([]);
   };
 
   const handleLaunchScenario = (scenario) => {
@@ -689,7 +738,17 @@ useEffect(() => {
                   {t.role}: {t.customer} | Level: {jlptLevel} | Formality: {formality}
                 </p>
               </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={handleNewChat}
+                title="New chat"
+              >
+                <RotateCcw style={{ width: 16, height: 16 }} />
+              </button>
             </div>
+
+
 
             <div className="chat-messages">
               {messages.map((msg, idx) => (
