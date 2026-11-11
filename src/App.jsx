@@ -4,6 +4,7 @@ import { generateRoleplayResponse, generateReplyHints } from './services/ai'; //
 import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
 import { DEFAULT_SCENARIOS, getCustomScenarios, saveCustomScenario } from './constants/scenarios';
+import { loadSettings, saveSettings } from './services/settings';
 import { 
   Layers, 
   Send, 
@@ -99,6 +100,12 @@ export default function App() {
   const [usedCardIds, setUsedCardIds] = useState(() => new Set());
   const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash-lite');
  
+    const [aiSettings, setAiSettings] = useState(loadSettings);
+
+  useEffect(() => {
+    saveSettings(aiSettings);
+  }, [aiSettings]);
+
   // Scenario Management State
   const [scenarios, setScenarios] = useState([]);
   const [activeScenario, setActiveScenario] = useState(DEFAULT_SCENARIOS[0]);
@@ -1077,6 +1084,100 @@ useEffect(() => {
               Light
             </button>
           </div>
+        </div>
+
+              {/* AI Provider */}
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+            AI Provider / AIプロバイダー
+          </label>
+          <div className="lang-toggle-grid">
+            <button
+              type="button"
+              className={`lang-btn ${aiSettings.provider === 'gemini' ? 'active' : ''}`}
+              onClick={() => setAiSettings((s) => ({ ...s, provider: 'gemini' }))}
+            >
+              Gemini
+            </button>
+            <button
+              type="button"
+              className={`lang-btn ${aiSettings.provider === 'custom' ? 'active' : ''}`}
+              onClick={() => setAiSettings((s) => ({ ...s, provider: 'custom' }))}
+            >
+              Custom (OpenAI-compatible)
+            </button>
+          </div>
+
+          {aiSettings.provider === 'gemini' ? (
+            <div className="settings-fields">
+              <input
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Gemini API key"
+                value={aiSettings.gemini.apiKey}
+                onChange={(e) =>
+                  setAiSettings((s) => ({ ...s, gemini: { ...s.gemini, apiKey: e.target.value } }))
+                }
+                className="settings-input"
+              />
+              <select
+                value={aiSettings.gemini.model}
+                onChange={(e) =>
+                  setAiSettings((s) => ({ ...s, gemini: { ...s.gemini, model: e.target.value } }))
+                }
+                className="select-input"
+              >
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
+                <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+              </select>
+              <p className="settings-hint">
+                Get a free key at{' '}
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+                  aistudio.google.com/apikey
+                </a>
+                . It is stored only in this browser.
+              </p>
+            </div>
+          ) : (
+            <div className="settings-fields">
+              <input
+                type="text"
+                spellCheck={false}
+                placeholder="Base URL, e.g. https://api.example.com/v1"
+                value={aiSettings.custom.baseUrl}
+                onChange={(e) =>
+                  setAiSettings((s) => ({ ...s, custom: { ...s.custom, baseUrl: e.target.value } }))
+                }
+                className="settings-input"
+              />
+              <input
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="API key"
+                value={aiSettings.custom.apiKey}
+                onChange={(e) =>
+                  setAiSettings((s) => ({ ...s, custom: { ...s.custom, apiKey: e.target.value } }))
+                }
+                className="settings-input"
+              />
+              <input
+                type="text"
+                spellCheck={false}
+                placeholder="Model name"
+                value={aiSettings.custom.model}
+                onChange={(e) =>
+                  setAiSettings((s) => ({ ...s, custom: { ...s.custom, model: e.target.value } }))
+                }
+                className="settings-input"
+              />
+              <p className="settings-hint">
+                Works with services that follow the OpenAI chat format. The service must allow requests
+                from a browser. Stored only in this browser.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Interface Language */}

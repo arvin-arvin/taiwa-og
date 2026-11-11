@@ -1206,3 +1206,39 @@ body {
   height: 16px;
   accent-color: var(--shu-500);
 }
+
+.settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.settings-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.85rem;
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-input:focus {
+  border-color: var(--shu-500);
+  box-shadow: 0 0 0 2px var(--shu-glow);
+}
+
+.settings-hint {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.settings-hint a {
+  color: var(--shu-500);
+}
