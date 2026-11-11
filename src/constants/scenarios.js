@@ -87,3 +87,62 @@ export function saveCustomScenario(scenario) {
   localStorage.setItem('custom_scenarios', JSON.stringify(updated));
   return updated;
 }
+
+const FORMALITIES = [
+  'Casual (タメ口)',
+  'Teineigo (丁寧語 - Polite)',
+  'Keigo (敬語 - Honorific/Humble)',
+];
+const MAX_IMPORT = 50;
+
+const clip = (v, n = 300) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+
+export function exportCustomScenarios() {
+  return JSON.stringify(
+    { app: 'taiwa', version: 1, scenarios: getCustomScenarios() },
+    null,
+    2
+  );
+}
+
+/** Validates an imported file and adds the good scenarios. Throws a readable error. */
+export function importCustomScenarios(jsonText) {
+  let data;
+  try {
+    data = JSON.parse(jsonText);
+  } catch {
+    throw new Error('That file is not valid JSON.');
+  }
+  const list = Array.isArray(data) ? data : data?.scenarios;
+  if (!Array.isArray(list)) throw new Error('No scenarios found in that file.');
+
+  const clean = [];
+  list.slice(0, MAX_IMPORT).forEach((s, i) => {
+    const titleEn = clip(s?.title?.en);
+    const greeting = clip(s?.initialMessage?.text, 500);
+    if (!titleEn || !greeting) return;
+
+    const formalities = Array.isArray(s.supportedFormalities)
+      ? s.supportedFormalities.filter((f) => FORMALITIES.includes(f))
+      : [];
+    const descEn = clip(s.description?.en, 500);
+
+    clean.push({
+      id: `custom-${Date.now()}-${i}`,
+      title: { en: titleEn, ja: clip(s.title.ja) || titleEn },
+      description: { en: descEn, ja: clip(s.description?.ja, 500) || descEn },
+      supportedFormalities: formalities.length ? formalities : [FORMALITIES[1]],
+      initialMessage: {
+        text: greeting,
+        translation: clip(s.initialMessage.translation, 500) || greeting,
+        furiganaHtml: clip(s.initialMessage.furiganaHtml, 1000) || greeting,
+      },
+      icon: clip(s.icon, 40) || 'Sparkles',
+    });
+  });
+
+  if (clean.length === 0) throw new Error('No valid scenarios found in that file.');
+
+  localStorage.setItem('custom_scenarios', JSON.stringify([...clean, ...getCustomScenarios()]));
+  return { added: clean.length, skipped: Math.min(list.length, MAX_IMPORT) - clean.length };
+}

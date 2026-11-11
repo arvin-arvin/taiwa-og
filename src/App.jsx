@@ -3,7 +3,13 @@ import { invokeAnki, sanitizeCard } from './services/anki';
 import { generateRoleplayResponse, generateReplyHints } from './services/ai'; // <--- Import generateReplyHints
 import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
-import { DEFAULT_SCENARIOS, getCustomScenarios, saveCustomScenario } from './constants/scenarios';
+import {
+  DEFAULT_SCENARIOS,
+  getCustomScenarios,
+  saveCustomScenario,
+  exportCustomScenarios,
+  importCustomScenarios,
+} from './constants/scenarios';
 import { loadSettings, saveSettings, isAiConfigured } from './services/settings';
 import { sanitizeFurigana } from './services/sanitize';
 import { 
@@ -44,7 +50,8 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
-
+  Download,
+  Upload,
 
 } from 'lucide-react';
 import './App.css';
@@ -347,6 +354,34 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }
 }, [messages, input]);
+
+  const handleExportScenarios = () => {
+    if (getCustomScenarios().length === 0) {
+      window.alert('You have no custom scenarios to export yet.');
+      return;
+    }
+    const blob = new Blob([exportCustomScenarios()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'taiwa-scenarios.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 1024 * 1024) throw new Error('That file is too large.');
+      const { added, skipped } = importCustomScenarios(await file.text());
+      setScenarios([...DEFAULT_SCENARIOS, ...getCustomScenarios()]);
+      window.alert(`Imported ${added} scenario(s).${skipped ? ` Skipped ${skipped} invalid.` : ''}`);
+    } catch (err) {
+      window.alert(err.message);
+    }
+  };
 
   const handleCreateScenario = (e) => {
     e.preventDefault();
@@ -753,7 +788,7 @@ useEffect(() => {
               <div className="notice-banner">
                 <div>
                   <strong>Add an AI key to start chatting.</strong>
-                  <span> Open settings, and add your own AI key, proxy is available</span>
+                  <span>Open settings, and add your own AI key, proxy is available</span>
                 </div>
                 <button
                   type="button"
@@ -929,14 +964,30 @@ useEffect(() => {
               <h1 className="scenarios-title">{t.scenariosTitle}</h1>
               <p className="scenarios-sub">{t.scenariosSubtitle}</p>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="primary-btn"
-              type="button"
-            >
-              <Plus style={{ width: 18, height: 18 }} />
-              {t.createScenarioBtn}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button type="button" className="secondary-btn" onClick={handleExportScenarios}>
+                <Download style={{ width: 16, height: 16 }} />
+                Export
+              </button>
+              <label className="secondary-btn">
+                <Upload style={{ width: 16, height: 16 }} />
+                Import
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleImportFile}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="primary-btn"
+                type="button"
+              >
+                <Plus style={{ width: 18, height: 18 }} />
+                {t.createScenarioBtn}
+              </button>
+            </div>
           </div>
 
           <div className="scenarios-filter-bar">
