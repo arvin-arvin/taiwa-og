@@ -83,6 +83,25 @@ export default function App() {
   // Settings & System State
   const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('appearance');
+
+    const [display, setDisplay] = useState(() => {
+    const defaults = { showTranslation: true, showFurigana: true };
+    try {
+      return { ...defaults, ...JSON.parse(localStorage.getItem('taiwa.display.v1')) };
+    } catch {
+      return defaults;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('taiwa.display.v1', JSON.stringify(display));
+    } catch {
+      // storage unavailable, ignore
+    }
+  }, [display]);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem('sidebarCollapsed');
@@ -397,7 +416,7 @@ useEffect(() => {
   });
 
   return (
-    <div className="app-container">
+        <div className={`app-container ${display.showFurigana ? '' : 'hide-furigana'}`}>
       {/* 1. Header fixed at the very top */}
             {/* Sidebar + main area */}
       <div className="dashboard-grid">
@@ -680,7 +699,7 @@ useEffect(() => {
                       </button>
                     </div>
 
-                    {msg.translation && (
+                     {msg.translation && display.showTranslation && (
                       <div className="translation-text">{msg.translation}</div>
                     )}
                   </div>
@@ -1048,9 +1067,28 @@ useEffect(() => {
         </button>
       </div>
 
+            {/* Tabs */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
+        {[
+          ['appearance', 'Appearance'],
+          ['system', 'System'],
+          ['chat', 'Chat'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={`lang-btn ${settingsTab === key ? 'active' : ''}`}
+            onClick={() => setSettingsTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Settings Options */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Appearance / Theme */}
+                {/* Appearance / Theme */}
+        {settingsTab === 'appearance' && (
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
             Appearance / テーマ
@@ -1075,9 +1113,12 @@ useEffect(() => {
               Light
             </button>
           </div>
-        </div>
+                </div>
+        )}
 
-              {/* AI Provider */}
+        {settingsTab === 'system' && (
+        <>
+        {/* AI Provider */}
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
             AI Provider / AIプロバイダー
@@ -1193,6 +1234,25 @@ useEffect(() => {
             </button>
           </div>
         </div>
+        </>
+        )}
+        {settingsTab === 'chat' && (
+          <div className="checkbox-group">
+            {[
+              ['showTranslation', 'Show English translation / 英訳を表示'],
+              ['showFurigana', 'Show furigana / ふりがなを表示'],
+            ].map(([key, label]) => (
+              <label key={key} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={display[key]}
+                  onChange={(e) => setDisplay((d) => ({ ...d, [key]: e.target.checked }))}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   </div>
@@ -1202,3 +1262,4 @@ useEffect(() => {
     </div>
   );
 }
+
