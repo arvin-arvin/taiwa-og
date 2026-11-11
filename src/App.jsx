@@ -5,6 +5,7 @@ import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
 import { DEFAULT_SCENARIOS, getCustomScenarios, saveCustomScenario } from './constants/scenarios';
 import { loadSettings, saveSettings } from './services/settings';
+import { sanitizeFurigana } from './services/sanitize';
 import { 
   Layers, 
   Send, 
@@ -664,7 +665,7 @@ useEffect(() => {
                   <div className={`chat-bubble ${msg.sender}`}>
                     <div className="chat-bubble-header">
                       {msg.furiganaHtml ? (
-                        <div dangerouslySetInnerHTML={{ __html: msg.furiganaHtml }} />
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeFurigana(msg.furiganaHtml) }} />
                       ) : (
                         <div>{msg.text}</div>
                       )}
