@@ -862,7 +862,7 @@ useEffect(() => {
               <div className="notice-banner">
                 <div>
                   <strong>Add an AI key to start chatting.</strong>
-                  <span>Open settings, and add your own AI key, proxy is available</span>
+                  <span> </span>
                 </div>
                 <button
                   type="button"
