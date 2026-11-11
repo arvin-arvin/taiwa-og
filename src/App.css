@@ -1274,3 +1274,13 @@ rt {
 .hide-furigana rt {
   display: none;
 }
+
+.hl-kanji {
+  color: var(--shu-500);
+}
+
+.hl-target {
+  background: rgba(255, 138, 101, 0.25);
+  border-radius: 0.25rem;
+  font-weight: 700;
+}

@@ -86,7 +86,12 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState('appearance');
 
     const [display, setDisplay] = useState(() => {
-    const defaults = { showTranslation: true, showFurigana: true };
+        const defaults = {
+      showTranslation: true,
+      showFurigana: true,
+      highlightKanji: false,
+      highlightTarget: false,
+    };
     try {
       return { ...defaults, ...JSON.parse(localStorage.getItem('taiwa.display.v1')) };
     } catch {
@@ -684,7 +689,16 @@ useEffect(() => {
                   <div className={`chat-bubble ${msg.sender}`}>
                     <div className="chat-bubble-header">
                       {msg.furiganaHtml ? (
-                      <div dangerouslySetInnerHTML={{ __html: sanitizeFurigana(msg.furiganaHtml) }} />
+                                              <div
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeFurigana(msg.furiganaHtml, {
+                              highlightKanji: display.highlightKanji,
+                              targets: display.highlightTarget
+                                ? deckCards.map((c) => c.expression)
+                                : [],
+                            }),
+                          }}
+                        />
                       ) : (
                         <div>{msg.text}</div>
                       )}
@@ -1241,6 +1255,8 @@ useEffect(() => {
             {[
               ['showTranslation', 'Show English translation / 英訳を表示'],
               ['showFurigana', 'Show furigana / ふりがなを表示'],
+              ['highlightKanji', 'Highlight kanji / 漢字を強調'],
+              ['highlightTarget', 'Highlight target words / 目標単語を強調'],
             ].map(([key, label]) => (
               <label key={key} className="checkbox-label">
                 <input
