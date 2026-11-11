@@ -157,10 +157,14 @@ You MUST respond strictly in valid raw JSON without markdown formatting, with th
 }
 `;
 
-  const chat = messages.map((m) => ({
+  const MAX_HISTORY = 25;
+  const chat = messages.slice(-MAX_HISTORY).map((m) => ({
     role: m.sender === "user" ? "user" : "assistant",
     content: m.text,
   }));
+  // The history should start with the AI's turn so the roles alternate
+  while (chat.length > 1 && chat[0].role === "user") chat.shift();
+  console.log('History sent:', chat.length, 'messages');
 
   try {
     const parsed = parseJsonLoose(await requestModel(systemPrompt, chat));

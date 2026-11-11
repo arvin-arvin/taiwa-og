@@ -1301,3 +1301,74 @@ rt {
 .chat-bubble:hover .translation-text.on-hover {
   visibility: visible;
 }
+
+.notice-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--shu-500);
+  background: rgba(255, 138, 101, 0.08);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+/* Chat scrollbar */
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 999px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 999px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.65);
+}
+
+.chat-messages::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Browsers without the pill support (Firefox) */
+@supports not selector(::-webkit-scrollbar) {
+  .chat-messages {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+  }
+}
+
+.anki-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  align-items: flex-start;
+  margin-top: 0;
+  background:
+    linear-gradient(rgba(255, 138, 101, 0.08), rgba(255, 138, 101, 0.08)),
+    var(--bg-app);
+}
+
+.anki-banner .icon-btn {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+@media (max-width: 720px) {
+  .anki-banner {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}

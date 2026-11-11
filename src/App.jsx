@@ -4,7 +4,7 @@ import { generateRoleplayResponse, generateReplyHints } from './services/ai'; //
 import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
 import { DEFAULT_SCENARIOS, getCustomScenarios, saveCustomScenario } from './constants/scenarios';
-import { loadSettings, saveSettings } from './services/settings';
+import { loadSettings, saveSettings, isAiConfigured } from './services/settings';
 import { sanitizeFurigana } from './services/sanitize';
 import { 
   Layers, 
@@ -95,6 +95,7 @@ export default function App() {
   // Settings & System State
   const [systemLang, setSystemLang] = useState(() => localStorage.getItem('systemLang') || 'en');
   const [showSettings, setShowSettings] = useState(false);
+  const [ankiBannerHidden, setAnkiBannerHidden] = useState(false);
   const [settingsTab, setSettingsTab] = useState('appearance');
 
     const [display, setDisplay] = useState(() => {
@@ -748,9 +749,43 @@ useEffect(() => {
               </button>
             </div>
 
-
-
+            {!isAiConfigured(aiSettings) && (
+              <div className="notice-banner">
+                <div>
+                  <strong>Add an AI key to start chatting.</strong>
+                  <span> Open settings, and add your own AI key, proxy is available</span>
+                </div>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => {
+                    setSettingsTab('system');
+                    setShowSettings(true);
+                  }}
+                >
+                  Open Settings
+                </button>
+              </div>
+            )}
+            {ankiStatus === 'error' && !ankiBannerHidden && (
+                <div className="notice-banner anki-banner">
+                  <div>
+                    <strong>Anki isn't connected.</strong>
+                    <span> Open Anki with AnkiConnect running. You can still chat without it.</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setAnkiBannerHidden(true)}
+                    title="Dismiss"
+                    aria-label="Dismiss"
+                  >
+                    <X style={{ width: 14, height: 14 }} />
+                  </button>
+                </div>
+              )}
             <div className="chat-messages">
+              
               {messages.map((msg, idx) => (
                 <div key={idx} className={`message-row ${msg.sender}`}>
                   <div className={`chat-bubble ${msg.sender}`}>
