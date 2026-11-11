@@ -1389,3 +1389,29 @@ rt {
 .secondary-btn:hover {
   border-color: var(--shu-500);
 }
+
+.start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.75rem;
+  border: 1.5px solid var(--shu-500);
+  background: transparent;
+  color: var(--shu-500);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.start-btn:hover {
+  background: rgba(255, 138, 101, 0.12);
+}
+
+.notice-banner {
+  margin-bottom: 0.9rem;
+}

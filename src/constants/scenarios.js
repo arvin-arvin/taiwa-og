@@ -97,12 +97,9 @@ const MAX_IMPORT = 50;
 
 const clip = (v, n = 300) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 
-export function exportCustomScenarios() {
-  return JSON.stringify(
-    { app: 'taiwa', version: 1, scenarios: getCustomScenarios() },
-    null,
-    2
-  );
+export function exportCustomScenarios(id) {
+  const list = getCustomScenarios().filter((s) => !id || s.id === id);
+  return JSON.stringify({ app: 'taiwa', version: 1, scenarios: list }, null, 2);
 }
 
 /** Validates an imported file and adds the good scenarios. Throws a readable error. */

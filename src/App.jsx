@@ -358,18 +358,33 @@ useEffect(() => {
   }
 }, [messages, input]);
 
+  const downloadJson = (text, filename) => {
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExportScenarios = () => {
     if (getCustomScenarios().length === 0) {
       window.alert('You have no custom scenarios to export yet.');
       return;
     }
-    const blob = new Blob([exportCustomScenarios()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'taiwa-scenarios.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson(exportCustomScenarios(), 'taiwa-scenarios.json');
+  };
+
+  const handleExportOne = () => {
+    if (!editingId) return;
+    const scen = scenarios.find((s) => s.id === editingId);
+    const name =
+      (scen?.title.en || 'scenario')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'scenario';
+    downloadJson(exportCustomScenarios(editingId), `taiwa-${name}.json`);
   };
 
   const handleImportFile = async (e) => {
@@ -1121,8 +1136,7 @@ useEffect(() => {
 
                     <button
                       onClick={() => handleLaunchScenario(scen)}
-                      className="primary-btn"
-                      style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }}
+                      className="start-btn"
                       type="button"
                     >
                       {t.startPractice} <ArrowRight style={{ width: 16, height: 16 }} />
@@ -1258,14 +1272,25 @@ useEffect(() => {
               </button>
 
               {editingId && (
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={handleDeleteScenario}
-                  style={{ justifyContent: 'center', color: '#e5484d', borderColor: '#e5484d' }}
-                >
-                  Delete scenario
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={handleExportOne}
+                    style={{ justifyContent: 'center' }}
+                  >
+                    <Download style={{ width: 16, height: 16 }} />
+                    Export this scenario
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={handleDeleteScenario}
+                    style={{ justifyContent: 'center', color: '#e5484d', borderColor: '#e5484d' }}
+                  >
+                    Delete scenario
+                  </button>
+                </>
               )}
             </form>
           </div>
