@@ -1284,3 +1284,20 @@ rt {
   border-radius: 0.25rem;
   font-weight: 700;
 }
+
+/* Reveal on hover (visibility keeps the bubble from changing height) */
+.furigana-on-hover .chat-bubble rt {
+  visibility: hidden;
+}
+
+.furigana-on-hover .chat-bubble:hover rt {
+  visibility: visible;
+}
+
+.translation-text.on-hover {
+  visibility: hidden;
+}
+
+.chat-bubble:hover .translation-text.on-hover {
+  visibility: visible;
+}

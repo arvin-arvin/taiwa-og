@@ -86,9 +86,9 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState('appearance');
 
     const [display, setDisplay] = useState(() => {
-        const defaults = {
-      showTranslation: true,
-      showFurigana: true,
+    const defaults = {
+      translationMode: 'always', // 'always' | 'hover' | 'off'
+      furiganaMode: 'always',
       highlightKanji: false,
       highlightTarget: false,
     };
@@ -421,7 +421,15 @@ useEffect(() => {
   });
 
   return (
-        <div className={`app-container ${display.showFurigana ? '' : 'hide-furigana'}`}>
+    <div
+      className={`app-container ${
+        display.furiganaMode === 'off'
+          ? 'hide-furigana'
+          : display.furiganaMode === 'hover'
+            ? 'furigana-on-hover'
+            : ''
+      }`}
+    >
       {/* 1. Header fixed at the very top */}
             {/* Sidebar + main area */}
       <div className="dashboard-grid">
@@ -713,8 +721,14 @@ useEffect(() => {
                       </button>
                     </div>
 
-                     {msg.translation && display.showTranslation && (
-                      <div className="translation-text">{msg.translation}</div>
+                    {msg.translation && display.translationMode !== 'off' && (
+                      <div
+                        className={`translation-text ${
+                          display.translationMode === 'hover' ? 'on-hover' : ''
+                        }`}
+                      >
+                        {msg.translation}
+                      </div>
                     )}
                   </div>
 
@@ -1251,22 +1265,42 @@ useEffect(() => {
         </>
         )}
         {settingsTab === 'chat' && (
-          <div className="checkbox-group">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {[
-              ['showTranslation', 'Show English translation / 英訳を表示'],
-              ['showFurigana', 'Show furigana / ふりがなを表示'],
-              ['highlightKanji', 'Highlight kanji / 漢字を強調'],
-              ['highlightTarget', 'Highlight target words / 目標単語を強調'],
+              ['translationMode', 'English translation / 英訳'],
+              ['furiganaMode', 'Furigana / ふりがな'],
             ].map(([key, label]) => (
-              <label key={key} className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={display[key]}
-                  onChange={(e) => setDisplay((d) => ({ ...d, [key]: e.target.checked }))}
-                />
-                {label}
-              </label>
+              <div key={key}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                  {label}
+                </label>
+                <select
+                  value={display[key]}
+                  onChange={(e) => setDisplay((d) => ({ ...d, [key]: e.target.value }))}
+                  className="select-input"
+                >
+                  <option value="always">Always show / 常に表示</option>
+                  <option value="hover">Show on hover / ホバーで表示</option>
+                  <option value="off">Hide / 非表示</option>
+                </select>
+              </div>
             ))}
+
+            <div className="checkbox-group">
+              {[
+                ['highlightKanji', 'Highlight kanji / 漢字を強調'],
+                ['highlightTarget', 'Highlight target words / 目標単語を強調'],
+              ].map(([key, label]) => (
+                <label key={key} className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={display[key]}
+                    onChange={(e) => setDisplay((d) => ({ ...d, [key]: e.target.checked }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </div>
         )}
       </div>
