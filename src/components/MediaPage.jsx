@@ -3,6 +3,7 @@ import { parseMediaText, MAX_MEDIA_LINES } from '../services/media';
 import { explainMediaLine } from '../services/ai';
 import { speakJapanese } from '../services/speech';
 import { sanitizeFurigana } from '../services/sanitize';
+import { lookupWordsInAnki } from '../services/anki';
 import { Upload, Trash2, Volume2, Sparkles } from 'lucide-react';
 
 const STORAGE_KEY = 'taiwa.media.v1';
@@ -39,6 +40,10 @@ const TEXT = {
     grammar: 'Grammar',
     note: 'Note',
     noKey: 'Add your API key in Settings first.',
+    ankiStudied: 'In Anki',
+    ankiNew: 'In Anki (new)',
+    ankiNone: 'Not in Anki',
+    ankiSummary: (n, total) => `${n} of ${total} key words are in your Anki`,
   },
   ja: {
     title: 'メディア学習',
@@ -70,6 +75,10 @@ const TEXT = {
     grammar: '文法',
     note: '補足',
     noKey: '先に設定でAPIキーを追加してください。',
+    ankiStudied: 'Anki学習済み',
+    ankiNew: 'Anki未学習',
+    ankiNone: 'Ankiになし',
+    ankiSummary: (n, total) => `重要語${total}件中${n}件がAnkiにあります`,
   },
 };
 
@@ -85,7 +94,7 @@ function loadSaved() {
   return { lines: [], selectedId: null, formality: 'formal' };
 }
 
-export default function MediaPage({ systemLang = 'en', jlptLevel = 'N4' }) {
+export default function MediaPage({ systemLang = 'en', jlptLevel = 'N4', ankiReady = false }) {
   const tt = TEXT[systemLang] || TEXT.en;
   const [saved] = useState(loadSaved);
   const [raw, setRaw] = useState('');
@@ -95,6 +104,7 @@ export default function MediaPage({ systemLang = 'en', jlptLevel = 'N4' }) {
   const [cache, setCache] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [ankiInfo, setAnkiInfo] = useState({});
 
   useEffect(() => {
     try {
@@ -163,6 +173,23 @@ export default function MediaPage({ systemLang = 'en', jlptLevel = 'N4' }) {
   };
 
   const aboveLevel = result?.jlpt && RANK[result.jlpt] > RANK[jlptLevel];
+
+  // Ask Anki (read only) which of the key words the learner already has
+  useEffect(() => {
+    if (!ankiReady || !result || ankiInfo[cacheKey]) return;
+    let cancelled = false;
+    lookupWordsInAnki(result.words.map((w) => w.word))
+      .then((info) => {
+        if (!cancelled) setAnkiInfo((a) => ({ ...a, [cacheKey]: info }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ankiReady, result, cacheKey, ankiInfo]);
+
+  const wordStatus = ankiInfo[cacheKey] || null;
+  const inAnki = wordStatus ? Object.values(wordStatus).filter((v) => v !== 'none').length : 0;
 
   return (
     <div className="media-container">
@@ -316,19 +343,33 @@ export default function MediaPage({ systemLang = 'en', jlptLevel = 'N4' }) {
                         <Volume2 style={{ width: 16, height: 16 }} />
                       </button>
                     </div>
-
                     {result.words.length > 0 && (
                       <>
                         <h3 className="media-label">{tt.words}</h3>
+                        {wordStatus && (
+                          <p className="media-anki-summary">{tt.ankiSummary(inAnki, result.words.length)}</p>
+                        )}
                         <ul className="media-words">
-                          {result.words.map((w, i) => (
-                            <li key={`${w.word}-${i}`}>
-                              <strong>{w.word}</strong>
-                              {w.reading && <span className="media-reading"> {w.reading}</span>}
-                              <span> — {w.meaning}</span>
-                              {w.jlpt && <span className="media-badge small">{w.jlpt}</span>}
-                            </li>
-                          ))}
+                          {result.words.map((w, i) => {
+                            const status = wordStatus?.[w.word];
+                            return (
+                              <li key={`${w.word}-${i}`}>
+                                <strong>{w.word}</strong>
+                                {w.reading && <span className="media-reading"> {w.reading}</span>}
+                                <span> — {w.meaning}</span>
+                                {w.jlpt && <span className="media-badge small">{w.jlpt}</span>}
+                                {status && (
+                                  <span className={`media-badge small ${status === 'studied' ? 'ok' : ''}`}>
+                                    {status === 'studied'
+                                      ? tt.ankiStudied
+                                      : status === 'new'
+                                        ? tt.ankiNew
+                                        : tt.ankiNone}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </>
                     )}

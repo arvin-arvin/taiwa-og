@@ -1043,7 +1043,7 @@ useEffect(() => {
             </form>
           </div>
           ) : activeTab === 'media' ? (
-            <MediaPage systemLang={systemLang} jlptLevel={jlptLevel} />
+            <MediaPage systemLang={systemLang} jlptLevel={jlptLevel} ankiReady={ankiStatus === 'ready'} />
           ) : (
         <div className="scenarios-container">
           <div className="scenarios-header">

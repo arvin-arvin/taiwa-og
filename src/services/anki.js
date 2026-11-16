@@ -104,3 +104,45 @@ export function sanitizeCard(card) {
     displayHtml: buildFurigana(expression, plainReading, otherHtml),
   };
 }
+
+
+/** Escapes characters that have a special meaning in an Anki search */
+function ankiEscape(s) {
+  return s.replace(/[\\"*_:]/g, '\\$&');
+}
+
+/**
+ * Checks which words the learner already has in Anki (read only).
+ * Returns { word: 'studied' | 'new' | 'none' }
+ *  studied = a card exists and has been seen at least once
+ *  new     = a card exists but has never been studied
+ */
+export async function lookupWordsInAnki(words) {
+  const list = [...new Set(words.map((w) => String(w || '').trim()).filter(Boolean))].slice(0, 12);
+  if (list.length === 0) return {};
+
+  const idLists = await Promise.all(
+    list.map(async (w) => {
+      const q = `"Expression:${ankiEscape(w)}" or "Front:${ankiEscape(w)}"`;
+      const ids = await invokeAnki('findCards', { query: q });
+      return Array.isArray(ids) ? ids : [];
+    })
+  );
+
+  const allIds = [...new Set(idLists.flat())];
+  const info = {};
+  if (allIds.length > 0) {
+    const cards = await invokeAnki('cardsInfo', { cards: allIds });
+    cards.forEach((c) => {
+      info[c.cardId] = c;
+    });
+  }
+
+  const out = {};
+  list.forEach((w, i) => {
+    const cards = idLists[i].map((id) => info[id]).filter(Boolean);
+    if (cards.length === 0) out[w] = 'none';
+    else out[w] = cards.some((c) => c.type !== 0) ? 'studied' : 'new';
+  });
+  return out;
+}
