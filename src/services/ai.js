@@ -355,3 +355,110 @@ CRITICAL OUTPUT FORMAT: respond with valid raw JSON only, no markdown, exactly t
     note: str(parsed.note),
   };
 }
+
+
+/**
+ * Makes quiz questions from the learner's Anki words or from media lines.
+ * kind: 'mcq' | 'fill' | 'mixed'
+ * source: { type: 'anki', cards: [{expression, reading, english}] } or { type: 'media', lines: ['...'] }
+ */
+function shuffle(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function cleanQuestion(q) {
+  if (!q || typeof q !== 'object') return null;
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const explanation = str(q.explanation);
+
+  if (q.type === 'mcq') {
+    const options = (Array.isArray(q.options) ? q.options : []).map(str).filter(Boolean);
+    const answerIndex = Number.parseInt(q.answer, 10);
+    if (!str(q.question)) return null;
+    if (options.length < 3 || options.length > 5 || new Set(options).size !== options.length) return null;
+    if (!(answerIndex >= 0 && answerIndex < options.length)) return null;
+    const correct = options[answerIndex];
+    const mixed = shuffle(options); // the model tends to favour one position
+    return {
+      type: 'mcq',
+      question: str(q.question),
+      options: mixed,
+      answer: mixed.indexOf(correct),
+      explanation,
+    };
+  }
+
+  if (q.type === 'fill') {
+    const sentence = str(q.sentence).replace(/_{2,}|＿+|\[\s*\]|（\s*）|\(\s*\)/g, '＿＿');
+    const answer = str(q.answer);
+    if (!sentence.includes('＿＿') || !answer) return null;
+    return {
+      type: 'fill',
+      sentence,
+      answer,
+      reading: str(q.reading),
+      hint: str(q.hint),
+      explanation,
+    };
+  }
+  return null;
+}
+
+export async function generateQuiz({
+  source,
+  kind = 'mixed',
+  count = 5,
+  jlptLevel = 'N4',
+  systemLang = 'en',
+}) {
+  const lang = systemLang === 'ja' ? 'simple Japanese (日本語)' : 'English';
+
+  let material;
+  if (source.type === 'media') {
+    const lines = source.lines.slice(0, 15).map((l) => `- 「${l}」`).join('\n');
+    material = `The learner is studying these lines from anime subtitles or song lyrics:\n${lines}\nEvery question must be about one of these lines (its vocabulary, grammar or meaning). Quote the line only when the question needs it.`;
+  } else {
+    const words = source.cards
+      .slice(0, 20)
+      .map((c) => `- ${c.expression}${c.reading ? ` (${c.reading})` : ''}: ${c.english || ''}`)
+      .join('\n');
+    material = `The learner's own Anki vocabulary:\n${words}\nEvery question must test one of these words. Use each word at most twice.`;
+  }
+
+  const kindRule =
+    kind === 'mcq'
+      ? `Make ${count} multiple-choice questions only.`
+      : kind === 'fill'
+        ? `Make ${count} fill-in-the-blank questions only.`
+        : `Make ${count} questions: about half multiple-choice and half fill-in-the-blank.`;
+
+  const systemPrompt = `
+You are a Japanese teacher writing a short quiz for a learner at JLPT ${jlptLevel}.
+
+${material}
+
+${kindRule}
+Keep every sentence at or below JLPT ${jlptLevel} in grammar and vocabulary, except for the target word itself.
+
+Question formats:
+- Multiple choice: {"type":"mcq","question":"...","options":["...","...","...","..."],"answer":0,"explanation":"..."}
+  4 options, exactly one correct, "answer" is the 0-based index of the correct option. Wrong options must be plausible but clearly wrong. Ask for a meaning, a reading, or the right word for a sentence.
+- Fill in the blank: {"type":"fill","sentence":"今日は＿＿が降っています。","answer":"雨","reading":"あめ","hint":"English meaning of the sentence","explanation":"..."}
+  The sentence has exactly one blank written as ＿＿. "answer" is the word that fills the blank (the form that fits the sentence). "reading" is its hiragana reading. The blank must have only one natural answer.
+
+Write "question" for multiple choice in ${lang} unless it quotes Japanese. Write "hint" and "explanation" in ${lang}; keep explanations to one short sentence.
+
+CRITICAL OUTPUT FORMAT: valid raw JSON only, no markdown: {"questions":[ ... ]}
+`;
+
+  const parsed = parseJsonLoose(await requestModel(systemPrompt, []));
+  const list = Array.isArray(parsed) ? parsed : parsed?.questions;
+  const questions = (Array.isArray(list) ? list : []).map(cleanQuestion).filter(Boolean).slice(0, count);
+  if (questions.length === 0) throw new Error('The AI did not return any usable questions. Try again.');
+  return questions;
+}

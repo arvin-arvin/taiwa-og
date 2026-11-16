@@ -3,6 +3,7 @@ import { invokeAnki, sanitizeCard } from './services/anki';
 import { generateRoleplayResponse, generateReplyHints } from './services/ai'; // <--- Import generateReplyHints
 import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
+import QuizPage from './components/QuizPage';
 import {
   DEFAULT_SCENARIOS,
   getCustomScenarios,
@@ -56,7 +57,8 @@ import {
   Download,
   Upload,
   Pencil,
-  Film
+  Film,
+  GraduationCap
 
 } from 'lucide-react';
 import './App.css';
@@ -642,6 +644,15 @@ useEffect(() => {
               <Film style={{ width: 18, height: 18, flexShrink: 0 }} />
               <span className="sidebar-label">{t?.navMedia || 'Media Study'}</span>
             </button>
+                        <button
+              type="button"
+              className={`sidebar-nav-btn ${activeTab === 'quiz' ? 'active' : ''}`}
+              onClick={() => setActiveTab('quiz')}
+              title={t?.navQuiz || 'Quiz'}
+            >
+              <GraduationCap style={{ width: 18, height: 18, flexShrink: 0 }} />
+              <span className="sidebar-label">{t?.navQuiz || 'Quiz'}</span>
+            </button>
           </nav>
 
           <div className="sidebar-scroll">
@@ -1044,6 +1055,8 @@ useEffect(() => {
           </div>
           ) : activeTab === 'media' ? (
             <MediaPage systemLang={systemLang} jlptLevel={jlptLevel} ankiReady={ankiStatus === 'ready'} />
+          ) : activeTab === 'quiz' ? (
+            <QuizPage cards={deckCards} systemLang={systemLang} jlptLevel={jlptLevel} />
           ) : (
         <div className="scenarios-container">
           <div className="scenarios-header">

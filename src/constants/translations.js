@@ -71,6 +71,7 @@ export const translations = {
     noHintsFound: "Could not generate hints. Try sending a message first!",
 
     navMedia: "Media Study",
+    navQuiz: "Quiz",
   },
   ja: {
     navChat: "会話練習",
@@ -140,6 +141,7 @@ export const translations = {
     noHintsFound: "ヒントを生成できませんでした。メッセージを送信してみてください！",
   
     navMedia: "メディア学習",
+    navQuiz: "クイズ",
   },
 };
 
