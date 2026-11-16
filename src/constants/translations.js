@@ -70,6 +70,7 @@ export const translations = {
     generatingHints: "Crafting suggestions...",
     noHintsFound: "Could not generate hints. Try sending a message first!",
 
+    navMedia: "Media Study",
   },
   ja: {
     navChat: "会話練習",
@@ -137,6 +138,8 @@ export const translations = {
     hintSubtitle: "クリックすると入力欄に直接セットされます。",
     generatingHints: "返信案を生成中...",
     noHintsFound: "ヒントを生成できませんでした。メッセージを送信してみてください！",
+  
+    navMedia: "メディア学習",
   },
 };
 

@@ -14,6 +14,7 @@ import {
 } from './constants/scenarios';
 import { loadSettings, saveSettings, isAiConfigured } from './services/settings';
 import { sanitizeFurigana } from './services/sanitize';
+import MediaPage from './components/MediaPage';
 import { 
   Layers, 
   Send, 
@@ -54,7 +55,8 @@ import {
   ChevronRight,
   Download,
   Upload,
-  Pencil
+  Pencil,
+  Film
 
 } from 'lucide-react';
 import './App.css';
@@ -631,6 +633,15 @@ useEffect(() => {
               <Compass style={{ width: 18, height: 18, flexShrink: 0 }} />
               <span className="sidebar-label">{t?.navScenarios || 'Scenarios'}</span>
             </button>
+                        <button
+              type="button"
+              className={`sidebar-nav-btn ${activeTab === 'media' ? 'active' : ''}`}
+              onClick={() => setActiveTab('media')}
+              title={t?.navMedia || 'Media Study'}
+            >
+              <Film style={{ width: 18, height: 18, flexShrink: 0 }} />
+              <span className="sidebar-label">{t?.navMedia || 'Media Study'}</span>
+            </button>
           </nav>
 
           <div className="sidebar-scroll">
@@ -1031,6 +1042,8 @@ useEffect(() => {
               </button>
             </form>
           </div>
+          ) : activeTab === 'media' ? (
+            <MediaPage systemLang={systemLang} jlptLevel={jlptLevel} />
           ) : (
         <div className="scenarios-container">
           <div className="scenarios-header">

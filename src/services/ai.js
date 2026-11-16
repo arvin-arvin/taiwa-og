@@ -268,3 +268,90 @@ Generate 3 Japanese candidate reply options for the user. Return JSON array ONLY
     return [];
   }
 }
+
+
+/**
+ * Explains one line from an anime subtitle or a song lyric.
+ * formality: 'casual' | 'formal' | 'respectful'  (plain / です・ます / keigo)
+ */
+const MEDIA_STYLES = {
+  casual: 'casual plain form (タメ口), no です/ます',
+  formal: 'polite form (丁寧語), です/ます',
+  respectful: 'respectful and humble keigo (敬語), using 尊敬語 and 謙譲語 where natural',
+};
+
+export async function explainMediaLine({
+  line,
+  before = '',
+  after = '',
+  formality = 'formal',
+  jlptLevel = 'N4',
+  systemLang = 'en',
+}) {
+  const style = MEDIA_STYLES[formality] || MEDIA_STYLES.formal;
+  const lang = systemLang === 'ja' ? 'natural, simple Japanese (日本語)' : 'English';
+
+  const systemPrompt = `
+You are a Japanese tutor. A learner at JLPT ${jlptLevel} is studying one line taken from anime subtitles or a song lyric.
+
+Line to explain: 「${line}」
+${before ? `Line before it (context only): 「${before}」` : ''}
+${after ? `Line after it (context only): 「${after}」` : ''}
+
+Tasks:
+1. Translate the line into natural English.
+2. Say which register the original line uses: "casual", "polite", "keigo" or "neutral".
+3. Estimate the JLPT level needed to understand the whole line: "N5", "N4", "N3", "N2" or "N1".
+4. Rewrite the line in this style: ${style}. Keep the meaning. If the line is already in that style, return it unchanged.
+5. List the important words (at most 8) with reading, short English meaning and JLPT level. Use the dictionary form.
+6. Explain the grammar patterns (at most 4) in plain words.
+7. Add one short note about nuance, tone or culture, if there is anything worth saying. Otherwise use an empty string.
+
+Write every explanation in ${lang}. The line may be a fragment or poetic; do not invent missing words.
+
+CRITICAL OUTPUT FORMAT: respond with valid raw JSON only, no markdown, exactly these keys:
+{
+  "furiganaHtml": "the original line with <ruby>kanji<rt>reading</rt></ruby> tags",
+  "translation": "English translation",
+  "register": "casual, polite, keigo or neutral",
+  "jlpt": "N5, N4, N3, N2 or N1",
+  "rewrite": { "text": "line in the requested style", "furiganaHtml": "same with ruby tags" },
+  "words": [ { "word": "...", "reading": "...", "meaning": "...", "jlpt": "N5, N4, N3, N2 or N1" } ],
+  "grammar": [ { "pattern": "...", "explanation": "..." } ],
+  "note": "short note or an empty string"
+}
+`;
+
+  const parsed = parseJsonLoose(await requestModel(systemPrompt, []));
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('The AI reply could not be read.');
+  }
+
+  const str = (v) => (typeof v === 'string' ? v : '');
+  const level = (v) => {
+    const m = String(v || '').toUpperCase().match(/N[1-5]/);
+    return m ? m[0] : '';
+  };
+
+  return {
+    furiganaHtml: str(parsed.furiganaHtml),
+    translation: str(parsed.translation),
+    register: str(parsed.register).toLowerCase(),
+    jlpt: level(parsed.jlpt),
+    rewrite: {
+      text: str(parsed.rewrite?.text) || line,
+      furiganaHtml: str(parsed.rewrite?.furiganaHtml),
+    },
+    words: (Array.isArray(parsed.words) ? parsed.words : []).slice(0, 8).map((w) => ({
+      word: str(w.word),
+      reading: str(w.reading),
+      meaning: str(w.meaning),
+      jlpt: level(w.jlpt),
+    })).filter((w) => w.word),
+    grammar: (Array.isArray(parsed.grammar) ? parsed.grammar : []).slice(0, 4).map((g) => ({
+      pattern: str(g.pattern),
+      explanation: str(g.explanation),
+    })).filter((g) => g.pattern),
+    note: str(parsed.note),
+  };
+}
