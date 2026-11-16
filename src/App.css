@@ -1753,3 +1753,44 @@ rt {
 .quiz-review li.wrong svg {
   color: var(--shu-500);
 }
+
+
+/* ===== Kanji writing pad ===== */
+.draw-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.draw-pad {
+  position: relative;
+  width: 100%;
+  max-width: calc(var(--cells) * 170px);
+  aspect-ratio: var(--cells) / 1;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background-color: var(--bg-app);
+  background-image:
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to right, transparent calc(50% - 0.5px), var(--border-subtle) calc(50% - 0.5px), var(--border-subtle) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), var(--border-subtle) calc(50% - 0.5px), var(--border-subtle) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  background-size:
+    calc(100% / var(--cells)) 100%,
+    calc(100% / var(--cells)) 100%,
+    100% 100%;
+  overflow: hidden;
+}
+.draw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--text-primary);
+  touch-action: none;
+  cursor: crosshair;
+}
+.quiz-answer-big {
+  font-size: 2rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+}

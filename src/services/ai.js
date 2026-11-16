@@ -402,6 +402,7 @@ function cleanQuestion(q) {
       sentence,
       answer,
       reading: str(q.reading),
+      alternatives: (Array.isArray(q.alternatives) ? q.alternatives : []).map(str).filter(Boolean).slice(0, 4),
       hint: str(q.hint),
       explanation,
     };
@@ -448,10 +449,9 @@ Keep every sentence at or below JLPT ${jlptLevel} in grammar and vocabulary, exc
 Question formats:
 - Multiple choice: {"type":"mcq","question":"...","options":["...","...","...","..."],"answer":0,"explanation":"..."}
   4 options, exactly one correct, "answer" is the 0-based index of the correct option. Wrong options must be plausible but clearly wrong. Ask for a meaning, a reading, or the right word for a sentence.
-- Fill in the blank: {"type":"fill","sentence":"今日は＿＿が降っています。","answer":"雨","reading":"あめ","hint":"English meaning of the sentence","explanation":"..."}
-  The sentence has exactly one blank written as ＿＿. "answer" is the word that fills the blank (the form that fits the sentence). "reading" is its hiragana reading. The blank must have only one natural answer.
-
-Write "question" for multiple choice in ${lang} unless it quotes Japanese. Write "hint" and "explanation" in ${lang}; keep explanations to one short sentence.
+- Fill in the blank: {"type":"fill","sentence":"今日は＿＿が降っています。","answer":"雨","reading":"あめ","alternatives":[],"hint":"English meaning of the sentence","explanation":"..."}
+  The sentence has exactly one blank written as ＿＿. "answer" is the word that fills the blank (the form that fits the sentence). "reading" is its hiragana reading. Aim for a blank with only one natural answer; if another word would also fit naturally, list it in "alternatives" (otherwise use an empty list).
+  Write "question" for multiple choice in ${lang} unless it quotes Japanese. Write "hint" and "explanation" in ${lang}; keep explanations to one short sentence.
 
 CRITICAL OUTPUT FORMAT: valid raw JSON only, no markdown: {"questions":[ ... ]}
 `;
