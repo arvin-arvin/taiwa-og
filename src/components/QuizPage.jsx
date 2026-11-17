@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { generateQuiz } from '../services/ai';
+import DrawPad from './DrawPad';
 import { Check, X, RotateCcw } from 'lucide-react';
 
 const MEDIA_KEY = 'taiwa.media.v1';
+const KANJI = /[\u3400-\u9fff々]/;
 
 const TEXT = {
   en: {
@@ -19,6 +21,15 @@ const TEXT = {
     mcq: 'Multiple choice',
     fill: 'Fill in the blank',
     mixed: 'Mixed',
+    kanji: 'Kanji writing',
+    kanjiHint: (n) => `${n} cards with kanji in the side panel`,
+    noKanji: 'None of the selected cards contain kanji. Pick another deck in the side panel.',
+    writeThis: 'Write this word',
+    showAnswer: 'Show answer',
+    gotIt: 'I wrote it correctly',
+    notYet: 'Not yet',
+    clear: 'Clear',
+    selfCheck: 'Compare with your writing, then mark yourself.',
     howMany: 'Number of questions',
     start: 'Start quiz',
     making: 'Making your quiz...',
@@ -51,6 +62,15 @@ const TEXT = {
     mcq: '選択式',
     fill: '穴埋め',
     mixed: 'ミックス',
+    kanji: '漢字の書き取り',
+    kanjiHint: (n) => `サイドパネルの漢字を含むカード: ${n}枚`,
+    noKanji: '選択中のカードに漢字がありません。サイドパネルで別のデッキを選んでください。',
+    writeThis: 'この言葉を書いてください',
+    showAnswer: '答えを見る',
+    gotIt: '正しく書けた',
+    notYet: 'まだ',
+    clear: '消す',
+    selfCheck: '自分の字と見比べて、自己採点してください。',
     howMany: '問題数',
     start: 'クイズ開始',
     making: 'クイズを作成中...',
@@ -85,8 +105,29 @@ function normalise(s) {
   return String(s || '')
     .normalize('NFKC')
     .replace(/\s+/g, '')
-    .replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
     .toLowerCase();
+}
+
+function questionText(q) {
+  if (q.type === 'mcq') return q.question;
+  if (q.type === 'fill') return q.sentence;
+  return [q.reading, q.english].filter(Boolean).join(' · ');
+}
+
+function answerText(q) {
+  if (q.type === 'mcq') return q.options[q.answer];
+  if (q.type === 'fill') return q.answer;
+  return q.expression;
+}
+
+function shuffleList(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'en' }) {
@@ -102,10 +143,17 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
   const [picked, setPicked] = useState(null);
   const [typed, setTyped] = useState('');
   const [checked, setChecked] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [results, setResults] = useState([]); // { question, correct, given }
 
   const mediaLines = phase === 'setup' ? readSavedLines() : [];
-  const sourceReady = sourceType === 'anki' ? cards.length > 0 : mediaLines.length > 0;
+  const kanjiCards = cards.filter((c) => KANJI.test(c.expression || ''));
+  const sourceReady =
+    kind === 'kanji'
+      ? kanjiCards.length > 0
+      : sourceType === 'anki'
+        ? cards.length > 0
+        : mediaLines.length > 0;
 
   const resetRun = (list) => {
     setQuestions(list);
@@ -113,6 +161,7 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
     setPicked(null);
     setTyped('');
     setChecked(false);
+    setRevealed(false);
     setResults([]);
     setPhase('running');
   };
@@ -122,6 +171,19 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
     setLoading(true);
     setMessage('');
     try {
+      if (kind === 'kanji') {
+        resetRun(
+          shuffleList(kanjiCards)
+            .slice(0, count)
+            .map((c) => ({
+              type: 'kanji',
+              expression: c.expression,
+              reading: c.reading || '',
+              english: c.english || '',
+            }))
+        );
+        return;
+      }
       const source =
         sourceType === 'anki'
           ? { type: 'anki', cards }
@@ -140,7 +202,9 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
     if (!q) return false;
     if (q.type === 'mcq') return picked === q.answer;
     const given = normalise(typed);
-    return given !== '' && (given === normalise(q.answer) || (q.reading && given === normalise(q.reading)));
+    if (given === '') return false;
+    const accepted = [q.answer, q.reading, ...(q.alternatives || [])].filter(Boolean).map(normalise);
+    return accepted.includes(given);
   };
 
   const handleCheck = () => {
@@ -155,7 +219,7 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
     ]);
   };
 
-  const handleNext = () => {
+  const goNext = () => {
     if (index + 1 >= questions.length) {
       setPhase('done');
       return;
@@ -164,6 +228,15 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
     setPicked(null);
     setTyped('');
     setChecked(false);
+    setRevealed(false);
+  };
+
+  const handleNext = goNext;
+
+  // Kanji writing is marked by the learner after seeing the answer
+  const handleGrade = (correct) => {
+    setResults((r) => [...r, { question: q, correct, given: '' }]);
+    goNext();
   };
 
   const correctCount = results.filter((r) => r.correct).length;
@@ -177,6 +250,7 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
 
       {phase === 'setup' && (
         <div className="panel-box quiz-setup">
+          {kind !== 'kanji' && (
           <div className="quiz-group">
             <span className="media-label">{tt.source}</span>
             <div className="quiz-choices">
@@ -201,11 +275,12 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
                   : tt.noLines}
             </p>
           </div>
+          )}
 
           <div className="quiz-group">
             <span className="media-label">{tt.type}</span>
             <div className="quiz-choices">
-              {['mixed', 'mcq', 'fill'].map((k) => (
+              {['mixed', 'mcq', 'fill', 'kanji'].map((k) => (
                 <button
                   key={k}
                   type="button"
@@ -216,6 +291,11 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
                 </button>
               ))}
             </div>
+            {kind === 'kanji' && (
+              <p className="media-empty">
+                {kanjiCards.length > 0 ? tt.kanjiHint(kanjiCards.length) : tt.noKanji}
+              </p>
+            )}
           </div>
 
           <div className="quiz-group">
@@ -252,7 +332,23 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
             {tt.question} {index + 1} / {questions.length}
           </div>
 
-          {q.type === 'mcq' ? (
+          {q.type === 'kanji' ? (
+            <>
+              <p className="media-label" style={{ margin: 0 }}>{tt.writeThis}</p>
+              <p className="quiz-question">
+                {q.reading && <span>{q.reading}</span>}
+                {q.reading && q.english && <span className="media-reading"> · </span>}
+                {q.english && <span className="media-reading">{q.english}</span>}
+              </p>
+              <DrawPad key={index} cells={Math.min(Math.max(q.expression.length, 1), 6)} clearLabel={tt.clear} />
+              {revealed && (
+                <div className="quiz-feedback">
+                  <div className="quiz-answer-big">{q.expression}</div>
+                  <p>{tt.selfCheck}</p>
+                </div>
+              )}
+            </>
+          ) : q.type === 'mcq' ? (
             <>
               <p className="quiz-question">{q.question}</p>
               <div className="quiz-options">
@@ -293,7 +389,7 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
             </>
           )}
 
-          {checked && (
+          {q.type !== 'kanji' && checked && (
             <div className={`quiz-feedback ${results[results.length - 1]?.correct ? 'right' : 'wrong'}`}>
               <strong>{results[results.length - 1]?.correct ? tt.correct : tt.wrong}</strong>
               {q.type === 'fill' && (
@@ -307,6 +403,28 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
             </div>
           )}
 
+          {q.type === 'kanji' ? (
+            <div className="media-actions">
+              {!revealed ? (
+                <button
+                  type="button"
+                  className="secondary-btn media-explain-btn"
+                  onClick={() => setRevealed(true)}
+                >
+                  {tt.showAnswer}
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="secondary-btn media-explain-btn" onClick={() => handleGrade(true)}>
+                    {tt.gotIt}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => handleGrade(false)}>
+                    {tt.notYet}
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
           <div className="media-actions">
             {!checked ? (
               <button
@@ -323,6 +441,7 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
               </button>
             )}
           </div>
+          )}
         </div>
       )}
 
@@ -341,17 +460,11 @@ export default function QuizPage({ cards = [], jlptLevel = 'N4', systemLang = 'e
                   <X style={{ width: 16, height: 16, flexShrink: 0 }} />
                 )}
                 <div>
-                  <div>{r.question.type === 'mcq' ? r.question.question : r.question.sentence}</div>
+                  <div>{questionText(r.question)}</div>
                   <div className="media-reading">
                     {r.correct
-                      ? r.question.type === 'mcq'
-                        ? r.question.options[r.question.answer]
-                        : r.question.answer
-                      : `${tt.yourAnswer} ${r.given} · ${tt.answerIs} ${
-                          r.question.type === 'mcq'
-                            ? r.question.options[r.question.answer]
-                            : r.question.answer
-                        }`}
+                      ? answerText(r.question)
+                      : `${r.given ? `${tt.yourAnswer} ${r.given} · ` : ''}${tt.answerIs} ${answerText(r.question)}`}
                   </div>
                 </div>
               </li>

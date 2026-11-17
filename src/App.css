@@ -1794,3 +1794,20 @@ rt {
   line-height: 1.4;
   color: var(--text-primary);
 }
+
+
+/* ===== Word source panel ===== */
+.source-toggle {
+  display: flex;
+  gap: 0.4rem;
+}
+.source-toggle .media-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.source-label {
+  display: block;
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

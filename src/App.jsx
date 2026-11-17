@@ -4,6 +4,8 @@ import { generateRoleplayResponse, generateReplyHints } from './services/ai'; //
 import { speakJapanese } from './services/speech';
 import { translations } from './constants/translations';
 import QuizPage from './components/QuizPage';
+import WordListPanel from './components/WordListPanel';
+import { listToCards, LIST_FOR_SCENARIO } from './constants/wordlists';
 import {
   DEFAULT_SCENARIOS,
   getCustomScenarios,
@@ -95,6 +97,8 @@ const SCENARIO_ICONS = {
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat');
   const [ankiStatus, setAnkiStatus] = useState('connecting');
+  const [wordSource, setWordSource] = useState('anki'); // 'anki' | 'builtin'
+  const [listId, setListId] = useState('daily');
   const [decks, setDecks] = useState([]);
   const [selectedDeck, setSelectedDeck] = useState('');
   const [deckCards, setDeckCards] = useState([]);
@@ -229,7 +233,7 @@ export default function App() {
   
 
       useEffect(() => {
-    if (!selectedDeck || ankiStatus !== 'ready' || cardMode === 'select') return;
+    if (wordSource !== 'anki' || !selectedDeck || ankiStatus !== 'ready' || cardMode === 'select') return;
 
     async function loadCards() {
       try {
@@ -250,18 +254,30 @@ export default function App() {
       }
     }
     loadCards();
-  }, [selectedDeck, ankiStatus, cardCount, cardMode, shuffleKey]);
+  }, [selectedDeck, ankiStatus, cardCount, cardMode, shuffleKey, wordSource]);
 
   // In "select" mode the practice words are the cards you ticked
   useEffect(() => {
-    if (cardMode === 'select') setDeckCards(pickedCards);
-  }, [cardMode, pickedCards]);
+    if (wordSource === 'anki' && cardMode === 'select') setDeckCards(pickedCards);
+  }, [cardMode, pickedCards, wordSource]);
 
   // A different deck means old picks and search results no longer apply
   useEffect(() => {
     setPickedCards([]);
     setSearchResults([]);
   }, [selectedDeck]);
+
+  // No Anki? Use the built-in lists
+  useEffect(() => {
+    if (ankiStatus === 'error') setWordSource('builtin');
+  }, [ankiStatus]);
+
+  useEffect(() => {
+    if (wordSource !== 'builtin') return;
+    const all = listToCards(listId);
+    setUsedWords(new Set());
+    setDeckCards([...all].sort(() => Math.random() - 0.5).slice(0, cardCount));
+  }, [wordSource, listId, cardCount, shuffleKey]);
 
   const [messages, setMessages] = useState(
     () =>
@@ -333,6 +349,7 @@ export default function App() {
 
   const handleLaunchScenario = (scenario) => {
     setActiveScenario(scenario);
+    if (wordSource === 'builtin') setListId(LIST_FOR_SCENARIO[scenario.id] || 'daily');
     setFormality(scenario.supportedFormalities[0]);
     setMessages([
       {
@@ -656,6 +673,18 @@ useEffect(() => {
           </nav>
 
           <div className="sidebar-scroll">
+  <WordListPanel
+    lang={systemLang}
+    wordSource={wordSource}
+    onSourceChange={setWordSource}
+    ankiReady={ankiStatus === 'ready'}
+    listId={listId}
+    onListChange={setListId}
+    count={cardCount}
+    onCountChange={setCardCount}
+    onReshuffle={() => setShuffleKey((k) => k + 1)}
+  />
+  <div style={{ display: wordSource === 'builtin' ? 'none' : 'contents' }}>
   {/* 1. Anki Deck Selection */}
   <div className="panel-box">
     <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -748,7 +777,8 @@ useEffect(() => {
         </p>
       </div>
     )}
-
+  </div>
+  {/* 3. Scenario Controls (JLPT & Formality Level) */}
   {/* 3. Scenario Controls (JLPT & Formality Level) */}
   <div className="panel-box">
     <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
